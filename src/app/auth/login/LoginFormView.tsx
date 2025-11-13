@@ -12,7 +12,7 @@ type LoginFormViewProps = {
 export function LoginFormView({ state, formAction }: LoginFormViewProps) {
   return (
     <div className="min-h-screen bg-white">
-      <nav className="w-full bg-white mb-12 border-b">
+      <nav className="w-full bg-white mb-12">
         <div className="max-w-full mx-auto px-6 py-3">
           <Image
             src="/icon/brand.svg"
@@ -24,21 +24,33 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
         </div>
       </nav>
 
-      <div className="flex flex-col lg:flex-row items-center justify-center gap-10 px-4 pb-12">
+      <div className="flex flex-row items-center justify-center gap-10 px-4 pb-12">
+        {/* KIRI: ILUSTRASI */}
+        <div className="w-1/2 flex justify-center">
+          <div className="">
+            <Image
+              src="/img/vector.jpg"
+              height={500}
+              width={500}
+              alt="Vector illustration"
+              priority
+            />
+          </div>
+        </div>
         {/* KANAN: FORM LOGIN */}
-        <div className="w-full lg:w-1/2 px-6 sm:px-10 py-10 bg-white rounded-2xl shadow-sm border border-orange-100">
-          <h1 className="text-2xl font-bold text-gray-900 mb-5 text-center lg:text-left">
+        <div className="w-1/2 px-6 py-10 bg-white rounded-2xl shadow-sm border border-orange-100">
+          <h1 className="text-2xl font-bold text-gray-900 mb-5 text-left">
             Welcome Back!
           </h1>
           <form action={formAction} className="space-y-5">
             <div>
-              <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-200 transition">
+              <div className="flex items-center rounded-md border border-gray-300 py-2 focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-200 transition">
                 <Image
                   src="/icon/pin.jpg"
                   height={15}
                   width={15}
                   alt="pin"
-                  className="mr-3"
+                  className="mx-3"
                 />
                 <input
                   type="password"
@@ -57,32 +69,13 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
             </div>
 
             <div className="mt-1 text-right text-xs">
-              <button
-                type="button"
-                disabled
-                className="text-orange-300 cursor-not-allowed"
-                aria-disabled="true"
-              >
+              <button type="button" className="text-orange-300">
                 Forgot PIN?
               </button>
             </div>
 
             <SubmitButton />
           </form>
-        </div>
-
-        {/* KIRI: ILUSTRASI */}
-        <div className="w-full lg:w-1/2 flex justify-center">
-          <div className="max-w-md">
-            <Image
-              src="/img/vector.jpg"
-              height={500}
-              width={500}
-              alt="Vector illustration"
-              className="w-full h-auto object-contain"
-              priority
-            />
-          </div>
         </div>
       </div>
     </div>
@@ -95,7 +88,7 @@ function SubmitButton() {
   return (
     <button
       type="submit"
-      className="w-full bg-[#f26522] text-white font-semibold py-2.5 rounded-lg hover:bg-[#e45713] transition disabled:cursor-not-allowed disabled:opacity-60"
+      className="w-full bg-[#f26522] text-white font-semibold py-2.5 rounded-md hover:bg-[#e45713] transition disabled:cursor-not-allowed disabled:opacity-60"
       disabled={pending}
     >
       {pending ? "Memproses..." : "Login"}
