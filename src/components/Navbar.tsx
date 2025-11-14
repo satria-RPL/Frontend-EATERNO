@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-function navbar() {
+function Navbar() {
   return (
     <nav className="w-full bg-white sticky top-0 z-50 border-0 shadow-sm text-gray-200">
       {/* 
@@ -13,9 +13,15 @@ function navbar() {
       <div className="max-w-full mx-auto flex items-center justify-between px-6 py-3">
         <div className="relative flex h-16 items-center justify-between w-full">
           {/* ================== BAGIAN KIRI: LOGO ================== */}
-          <a className="text-gray-800 font-bold text-lg">
-            <img src="/images/TOMORO-COFFEE 1.svg" alt="" />
-          </a>
+          <div className="text-gray-800 font-bold text-lg">
+            <Image
+              src="/icon/brand.svg"
+              width={80}
+              height={80}
+              alt=""
+              className="h-fit w-fit object-cover"
+            />
+          </div>
 
           {/* ================== TENGAH: SEARCH BAR ==================
           <div className="hidden sm:block flex-1 max-w-md mx-8">
@@ -67,9 +73,9 @@ function navbar() {
               </svg>
             </button>
             <Image
-              src="/images/Monyet.png"
-              width={80}
-              height={80}
+              src="/img/profil.png"
+              width={100}
+              height={100}
               alt=""
               className="h-fit w-fit object-cover"
             />
@@ -84,4 +90,4 @@ function navbar() {
   );
 }
 
-export default navbar;
+export default Navbar;

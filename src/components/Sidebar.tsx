@@ -51,13 +51,13 @@ function Sidebar() {
       <div
         className={cn(
           isSidebarExpanded ? "w-[200px]" : "w-[68px]",
-          "border-r transition-all duration-300 ease-in-out transform hidden sm:flex h-full bg-accent"
+          "border-r transition-all duration-300 ease-in-out transform hidden sm:flex h-full bg-accent border-gray-200"
         )}
       >
         {/* ---------------------------------------
             SIDEBAR CONTENT
         ---------------------------------------- */}
-        <aside className="flex h-full flex-col w-full px-4 overflow-x-hidden bg-white">
+        <aside className="flex h-screen flex-col w-full px-4 overflow-x-hidden overflow-y-auto bg-white">
           {/* ---------------------------------------
               TOP NAVIGATION LIST
           ---------------------------------------- */}
@@ -66,7 +66,7 @@ function Sidebar() {
               {navItems.map((item, idx) =>
                 item.position === "top" ? (
                   <Fragment key={idx}>
-                    <div className="space-y-1">
+                    <div className="space-y-1 bg-white active:bg-pink-50 rounded-[10] p-1">
                       <SideNavItem
                         label={item.name}
                         icon={item.icon}
@@ -108,18 +108,18 @@ function Sidebar() {
         {/* ---------------------------------------
             SIDEBAR TOGGLE BUTTON
         ---------------------------------------- */}
-        <div className="mt-[calc(calc(90vh)-40px)] relative">
+        <div className="mt-[calc(calc(1h)-40px)] relative">
           <button
             type="button"
             onClick={toggleSidebar}
-            className="absolute bottom-32 -right-3 flex h-6 w-6 items-center justify-center 
+            className="absolute top-3 -right-3 flex h-6 w-6 items-center justify-center 
                     border border-muted-foreground/20 rounded-full bg-accent shadow-md 
-                    hover:shadow-lg transition-shadow duration-300 ease-in-out"
+                    hover:shadow-lg transition-shadow duration-300 ease-in-out text-gray-300"
           >
             {isSidebarExpanded ? (
-              <ChevronLeft size={16} className="stroke-foreground" />
+              <ChevronLeft size={18} className="stroke-foreground" />
             ) : (
-              <ChevronRight size={16} className="stroke-foreground" />
+              <ChevronRight size={18} className="stroke-foreground" />
             )}
           </button>
         </div>
@@ -143,10 +143,10 @@ export const SideNavItem: React.FC<{
     "h-full relative flex items-center whitespace-nowrap rounded-md font-base text-sm duration-100";
 
   const activeClasses =
-    "bg-neutral-200 shadow-sm text-neutral-700 dark:bg-neutral-800 dark:text-white";
+    "bg-pink-50 text-pink-600 ";
 
   const inactiveClasses =
-    "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-white";
+    "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 dark:hover:bg-pink-50 dark:hover:text-pink-600";
 
   return (
     <>

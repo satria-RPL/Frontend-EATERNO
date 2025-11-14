@@ -1,6 +1,6 @@
 import { usePathname } from "next/navigation";
 
-// import { Bell , Home, Settings } from "lucide-react";
+import { Bell , Home, Settings, SettingsIcon } from "lucide-react";
 
 import { TagIcon } from "@/components/icons/TagIcon";
 
@@ -15,32 +15,32 @@ export const NavItems = () => {
 
   return [
     {
-      name: "Home",
+      name: "Dashboard",
       href: "/",
-      icon: <HomeIcon size={20} />,
+      icon: <HomeIcon width={20} height={20} />,
       active: pathname === "/",
       position: "top",
     },
     {
       name: "Products",
-      href: "/Products",
+      href: "/main/Products",
       icon: <TagIcon width={20} height={20} />,
-      active: isNavItemActive(pathname, "/Products"),
+      active: isNavItemActive(pathname, "/main/Products"),
       position: "top",
     },
     {
       name: "Product History",
-      href: "/Products/History-Order",
+      href: "/main/Products/History-Order",
       icon: <TagIcon width={20} height={20} />,
-      active: isNavItemActive(pathname, "/Products/History-Order"),
+      active: isNavItemActive(pathname, "/main/Products/History-Order"),
       position: "top",
     },
-    //     {
-    //   name: "Settings",
-    //   href: "/settings",
-    //   icon: <TagIcon width={20} height={20} />,
-    //   active: isNavItemActive(pathname, "/settings"),
-    //   position: "bottom",
-    // },
+    {
+      name: "Settings",
+      href: "/main/Settings",
+      icon: <SettingsIcon width={20} height={20} />,
+      active: isNavItemActive(pathname, "/main/settings"),
+      position: "bottom",
+    },
   ];
 };
