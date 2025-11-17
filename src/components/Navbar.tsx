@@ -2,7 +2,7 @@ import Image from "next/image";
 
 function Navbar() {
   return (
-    <nav className="w-full bg-white sticky top-0 z-50 border-0 shadow-sm text-gray-200">
+    <nav className="w-full bg-white top-0 z-50 border-0 shadow-sm text-gray-200 fixed">
       {/* 
         w-full  : lebar penuh mengikuti kontainer kanan, bukan layar
         sticky top-0 : nempel di atas saat scroll
