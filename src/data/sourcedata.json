@@ -1,0 +1,17 @@
+[
+    {
+    "label": "Others",
+    "value": 23,
+    "color": "#DDDDDD"
+  },
+  {
+    "label": "Foodies",
+    "value": 32,
+    "color": "#F67F20"
+  },
+  {
+    "label": "Cold Drinks",
+    "value": 45,
+    "color": "#000000"
+  }
+]
