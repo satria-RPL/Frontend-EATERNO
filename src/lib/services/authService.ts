@@ -1,20 +1,19 @@
+
+import { dummyUsers } from "@/data/users";
+
 export async function loginService(pin: string) {
-  const dummyUser = {
-    pin: "123456",
-    name: "Neo One",
-  };
+  const user = dummyUsers.find((item) => item.pin === pin);
 
-  const isValid = pin === dummyUser.pin;
-
-  if (!isValid) {
+  if (!user) {
     return { success: false, message: "PIN salah" };
   }
 
   return {
     success: true,
     user: {
-      name: dummyUser.name,
-      pin: dummyUser.pin,
+      name: user.name,
+      pin: user.pin,
+      role: user.role,
     },
   };
 }

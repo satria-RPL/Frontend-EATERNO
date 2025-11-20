@@ -1,5 +1,4 @@
 import { logout } from "../../auth/login/actions";
-import PagePlaceholder from '@/components/Page-Placeholder';
 
 export default function DashboardPage() {
   return (

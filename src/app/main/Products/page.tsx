@@ -1,7 +1,5 @@
-import React from 'react';
+import { redirect } from "next/navigation";
 
-import PagePlaceholder from '@/components/Page-Placeholder';
-
-export default function ProductPage() {
-  return <PagePlaceholder pageName="Product" />;
+export default function ProductsIndex() {
+  redirect("products/ordertype");
 }

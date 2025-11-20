@@ -1,17 +1,14 @@
 import { usePathname } from "next/navigation";
-
-import { Bell , Home, Settings, SettingsIcon } from "lucide-react";
+import { SettingsIcon } from "lucide-react";
 
 import { TagIcon } from "@/components/icons/TagIcon";
-
 import { HomeIcon } from "@/components/icons/HomeIcon";
+import type { NavItem } from "@/types/nav";
 
-export const NavItems = () => {
+export const NavItems = (): NavItem[] => {
   const pathname = usePathname();
 
-  function isNavItemActive(pathname: string, nav: string) {
-    return pathname.includes(nav);
-  }
+  const isNavItemActive = (path: string, nav: string) => path.includes(nav);
 
   return [
     {
@@ -23,21 +20,21 @@ export const NavItems = () => {
     },
     {
       name: "Products",
-      href: "/main/Products",
+      href: "/main/products",
       icon: <TagIcon width={20} height={20} />,
-      active: isNavItemActive(pathname, "/main/Products"),
+      active: isNavItemActive(pathname, "/main/products"),
       position: "top",
     },
     {
       name: "Product History",
-      href: "/main/Products/History-Order",
+      href: "/main/orderhistory",
       icon: <TagIcon width={20} height={20} />,
-      active: isNavItemActive(pathname, "/main/Products/History-Order"),
+      active: isNavItemActive(pathname, "/main/orderhistory"),
       position: "top",
     },
     {
       name: "Settings",
-      href: "/main/Settings",
+      href: "/main/settings",
       icon: <SettingsIcon width={20} height={20} />,
       active: isNavItemActive(pathname, "/main/settings"),
       position: "bottom",
