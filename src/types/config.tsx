@@ -16,9 +16,9 @@ export const NavItems = () => {
   return [
     {
       name: "Dashboard",
-      href: "/",
+      href: "/main/dashboard",
       icon: <HomeIcon width={20} height={20} />,
-      active: pathname === "/",
+      active: isNavItemActive(pathname, "/main/dashboard"),
       position: "top",
     },
     {

@@ -15,7 +15,7 @@ export async function setSessionCookie(token: string) {
   (await cookies()).set(SESSION_COOKIE_NAME, token, {
     ...baseCookieOptions,
     maxAge: SESSION_MAX_AGE,
-  });
+  }); 
 }
 
 export async function clearSessionCookie() {

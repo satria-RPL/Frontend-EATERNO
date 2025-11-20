@@ -38,7 +38,7 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
           </div>
         </div>
         {/* KANAN: FORM LOGIN */}
-        <div className="w-1/2 px-6 py-10 bg-white rounded-2xl shadow-sm border border-orange-100">
+        <div className="w-1/2 py-10 bg-white rounded-2xl shadow-sm border border-orange-100">
           <h1 className="text-2xl font-bold text-gray-900 mb-5 text-left">
             Welcome Back!
           </h1>
