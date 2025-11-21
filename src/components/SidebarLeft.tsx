@@ -91,7 +91,7 @@ export function SideNavItem({
       href={href}
       className={cn(baseClasses, active ? activeClasses : inactiveClasses)}
     >
-      <div className="py-2 px-4 gap-2 flex flex-row items-center rounded-md transform">
+      <div className="py-2 px-4 gap-2 flex flex-row items-center rounded-md">
         {icon}
         <span>{name}</span>
       </div>
@@ -107,7 +107,7 @@ export function SideNavItem({
               active ? activeClasses : inactiveClasses
             )}
           >
-            <div className="py-2 px-4 flex items-center justify-center rounded-md transform">
+            <div className="py-2 px-4 flex items-center justify-center rounded-md">
               {icon}
             </div>
           </Link>
