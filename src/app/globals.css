@@ -8,3 +8,10 @@
 .hide-scrollbar::-webkit-scrollbar {
   display: none; /* Safari and Chrome */
 }
+
+.btn {
+  @apply px-3 py-1 rounded bg-orange-500 text-white text-sm;
+}
+.btn-outline {
+  @apply px-3 py-1 rounded border border-gray-300 text-sm;
+}

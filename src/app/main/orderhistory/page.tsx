@@ -1,7 +1,10 @@
-import React from 'react';
+import OrderTable from "@/components/sections/OrderTable";
 
-import PagePlaceholder from '@/components/Page-Placeholder';
-
-export default function HistoryOrderPage() {
-  return <PagePlaceholder pageName="History Order" />;
+export default function OrderHistoryPage() {
+  return (
+    <div className="p-2 -py-3 space-y-6 min-h-screen bg-white">
+      <h1 className="text-2xl font-bold">Order History</h1>
+      <OrderTable />
+    </div>
+  );
 }

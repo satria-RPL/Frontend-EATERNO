@@ -1,8 +1,22 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react"; // ← ditambahkan untuk state
 
 export default function SidebarRight() {
+  // ---------- STATE UNTUK PEMBAYARAN & CUPON ----------
+  const [paymentMethod, setPaymentMethod] = useState<string>(""); // Cash/QRIS/Bank
+  const [selectedCoupons, setSelectedCoupons] = useState<string[]>([]); // cupon disc
+
+  // ---------- HANDLER UNTUK TOGGLE CUPON ----------
+  const toggleCoupon = (coupon: string) => {
+    if (selectedCoupons.includes(coupon)) {
+      setSelectedCoupons(selectedCoupons.filter((c) => c !== coupon));
+    } else {
+      setSelectedCoupons([...selectedCoupons, coupon]);
+    }
+  };
+
   return (
     <aside
       className="
@@ -90,7 +104,12 @@ export default function SidebarRight() {
             {["Cash", "QRIS", "Bank"].map((m) => (
               <button
                 key={m}
-                className="px-3 py-1 rounded-full border text-xs bg-white"
+                onClick={() => setPaymentMethod(m)} // ← ditambahkan
+                className={`px-3 py-1 rounded-full border text-xs ${
+                  paymentMethod === m
+                    ? "bg-orange-500 text-white"
+                    : "bg-white"
+                }`} // ← conditional styling
               >
                 {m}
               </button>
@@ -102,14 +121,25 @@ export default function SidebarRight() {
         <div className="mb-4">
           <p className="text-xs font-semibold mb-2">Cupon Disc</p>
           <div className="space-y-2 text-xs">
-            <button className="w-full flex justify-between items-center px-3 py-2 rounded-lg bg-orange-100 text-orange-600">
-              <span>GEBYAR HARI RAYA</span>
-              <span>●</span>
-            </button>
-            <button className="w-full flex justify-between items-center px-3 py-2 rounded-lg bg-gray-100 text-gray-500">
-              <span>17 AGUSTUS</span>
-              <span>○</span>
-            </button>
+            {[
+              { name: "GEBYAR HARI RAYA" },
+              { name: "17 AGUSTUS" },
+            ].map((coupon) => (
+              <button
+                key={coupon.name}
+                onClick={() => toggleCoupon(coupon.name)} // ← ditambahkan
+                className={`w-full flex justify-between items-center px-3 py-2 rounded-lg text-xs ${
+                  selectedCoupons.includes(coupon.name)
+                    ? "bg-orange-100 text-orange-600"
+                    : "bg-gray-100 text-gray-500"
+                }`} // ← conditional styling
+              >
+                <span>{coupon.name}</span>
+                <span>
+                  {selectedCoupons.includes(coupon.name) ? "●" : "○"}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
