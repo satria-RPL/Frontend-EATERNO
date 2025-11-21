@@ -6,6 +6,7 @@ export type LoginResult = {
   user?: {
     name: string;
     pin: string;
+    role?: string;
   };
 };
 

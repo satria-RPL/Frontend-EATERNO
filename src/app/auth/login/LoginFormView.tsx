@@ -24,10 +24,10 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
         </div>
       </nav>
 
-      <div className="flex flex-row items-center justify-center gap-10 px-4 pb-12">
+      <div className="flex flex-row items-center justify-center gap-10 px-10 pb-12">
         {/* KIRI: ILUSTRASI */}
         <div className="w-1/2 flex justify-center">
-          <div className="">
+          <div>
             <Image
               src="/img/vector.jpg"
               height={500}
@@ -38,7 +38,7 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
           </div>
         </div>
         {/* KANAN: FORM LOGIN */}
-        <div className="w-1/2 py-10 bg-white rounded-2xl shadow-sm border border-orange-100">
+        <div className="w-1/2 py-10 bg-white rounded-2xl shadow-sm border border-orange-100 px-10">
           <h1 className="text-2xl font-bold text-gray-900 mb-5 text-left">
             Welcome Back!
           </h1>

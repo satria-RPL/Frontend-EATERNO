@@ -16,12 +16,14 @@ export async function handleLogin(
 
   const result = await loginUser(pin);
 
-  if (!result.success) {
-    return { error: result.message };
+  if (!result.success || !result.user) {
+    return { error: result.message ?? "Login gagal, coba lagi." };
   }
 
-  await setSessionCookie("dummy-token");
-  redirect("/main/dashboard");
+  const user = result.user;
+  await setSessionCookie(JSON.stringify({ name: user.name, role: user.role }));
+
+  redirect("/main/openshift");
 }
 
 export async function logout() {

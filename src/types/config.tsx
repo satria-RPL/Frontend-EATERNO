@@ -1,46 +1,59 @@
-import { usePathname } from "next/navigation";
+// "use client";
 
-import { Bell , Home, Settings, SettingsIcon } from "lucide-react";
+// import { usePathname } from "next/navigation";
+// import { Settings, LogOut, HelpCircle } from "lucide-react";
 
-import { TagIcon } from "@/components/icons/TagIcon";
+// import { TagIcon } from "@/components/icons/TagIcon";
+// import { HomeIcon } from "@/components/icons/HomeIcon";
+// import type { NavItem } from "@/types/nav";
 
-import { HomeIcon } from "@/components/icons/HomeIcon";
+// export const NavItems = (): NavItem[] => {
+//   const pathname = usePathname();
 
-export const NavItems = () => {
-  const pathname = usePathname();
+//   const isNavItemActive = (path: string, nav: string) => path.includes(nav);
 
-  function isNavItemActive(pathname: string, nav: string) {
-    return pathname.includes(nav);
-  }
-
-  return [
-    {
-      name: "Dashboard",
-      href: "/main/dashboard",
-      icon: <HomeIcon width={20} height={20} />,
-      active: isNavItemActive(pathname, "/main/dashboard"),
-      position: "top",
-    },
-    {
-      name: "Products",
-      href: "/main/Products",
-      icon: <TagIcon width={20} height={20} />,
-      active: isNavItemActive(pathname, "/main/Products"),
-      position: "top",
-    },
-    {
-      name: "Product History",
-      href: "/main/Products/History-Order",
-      icon: <TagIcon width={20} height={20} />,
-      active: isNavItemActive(pathname, "/main/Products/History-Order"),
-      position: "top",
-    },
-    {
-      name: "Settings",
-      href: "/main/Settings",
-      icon: <SettingsIcon width={20} height={20} />,
-      active: isNavItemActive(pathname, "/main/settings"),
-      position: "bottom",
-    },
-  ];
-};
+//   return [
+//     {
+//       name: "Dashboard",
+//       href: "/main/dashboard",
+//       icon: <HomeIcon width={20} height={20} />,
+//       active: isNavItemActive(pathname, "/main/dashboard"),
+//       position: "top",
+//     },
+//     {
+//       name: "Products",
+//       href: "/main/products",
+//       icon: <TagIcon width={20} height={20} />,
+//       active: isNavItemActive(pathname, "/main/products"),
+//       position: "top",
+//     },
+//     {
+//       name: "Product History",
+//       href: "/main/orderhistory",
+//       icon: <TagIcon width={20} height={20} />,
+//       active: isNavItemActive(pathname, "/main/orderhistory"),
+//       position: "top",
+//     },
+//     {
+//       name: "Settings",
+//       href: "/main/settings",
+//       icon: <Settings className="stroke-current" width={20} height={20} />,
+//       active: isNavItemActive(pathname, "/main/settings"),
+//       position: "bottom",
+//     },
+//     {
+//       name: "Help Center",
+//       href: "/main/help",
+//       icon: <HelpCircle className="stroke-current" width={20} height={20} />,
+//       active: isNavItemActive(pathname, "/main/help"),
+//       position: "bottom",
+//     },
+//     {
+//       name: "Logout",
+//       href: "/logout",
+//       icon: <LogOut className="stroke-current" width={20} height={20} />,
+//       active: false,
+//       position: "bottom",
+//     },
+//   ];
+// };
