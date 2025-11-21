@@ -15,7 +15,7 @@ export default function ChooseTable() {
   };
 
   return (
-    <div className="">
+    <div>
       <h1 className="text-2xl font-semibold mb-6">Choose Table</h1>
 
       {/* --- Small Capacity --- */}
