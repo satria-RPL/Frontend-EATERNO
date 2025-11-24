@@ -12,9 +12,9 @@ export default function OrderType() {
     if (!selected) return;
 
     if (selected === "takeaway") {
-      router.push("list");
+      router.push("/main/products/list");
     } else {
-      router.push("choosetable");
+      router.push("/main/products/choosetable");
     }
   };
 

@@ -1,7 +1,6 @@
 "use client";
 
-// mengimpor data penjualan harian dari file JSON
-import sellingData from "@/data/selling.json";
+import { sellingData } from "@/data/selling";
 import Card from "../cards/Card";
 import DaySellingAreaChart from "../charts/DaySellingAreaChart";
 

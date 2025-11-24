@@ -4,7 +4,6 @@ import incomeData from "@/data/income.json";
 import Card from "../cards/Card";
 import IncomePieChart, { COLORS } from "../charts/IncomePieChart";
 
-// komponen TotalIncome untuk menampilkan total pendapatan dengan diagram pai
 export default function TotalIncome() {
   const data = [
     { name: "Food", value: incomeData.food },
@@ -13,6 +12,7 @@ export default function TotalIncome() {
   ];
 
   const total = data.reduce((a, b) => a + b.value, 0);
+  const formattedTotal = total.toLocaleString("id-ID");
 
   return (
     <Card>
@@ -34,10 +34,9 @@ export default function TotalIncome() {
             </div>
           ))}
         </div>
-        {/* (opsional) teks total di bawah legend jika mau
-        <div className="mt-4 text-center font-semibold text-orange-600 text-base">
+        <div className="mt-2 text-center font-semibold text-orange-600 text-base">
           Rp {formattedTotal}
-        </div> */}
+        </div>
       </div>
     </Card>
   );

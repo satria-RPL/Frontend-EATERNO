@@ -23,7 +23,7 @@ export async function handleLogin(
   const user = result.user;
   await setSessionCookie(JSON.stringify({ name: user.name, role: user.role }));
 
-  redirect("/main/openshift");
+  redirect("/public/shift/openshift");
 }
 
 export async function logout() {

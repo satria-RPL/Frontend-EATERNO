@@ -6,7 +6,7 @@ import {
   CartesianGrid,
   YAxis,
   Tooltip,
-  DotProps,
+  XAxis,
 } from "recharts";
 
 interface SellingData {
@@ -45,6 +45,7 @@ export default function DaySellingAreaChart({ data }: { data: SellingData[] }) {
     <div>
       {/* Chart */}
       <AreaChart width={400} height={200} data={data}>
+        <XAxis dataKey="day" />
         <defs>
           {/* FOOD */}
           <linearGradient id="food" x1="0" y1="0" x2="0" y2="1">

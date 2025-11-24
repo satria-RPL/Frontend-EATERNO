@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { Home, Tag, Settings, LogOut, CircleHelp } from "lucide-react";
 import type { NavItem } from "@/types/nav";
 
-export const NavItems = (): NavItem[] => {
+export const useNavItems = (): NavItem[] => {
   const pathname = usePathname();
 
   const isNavItemActive = (path: string, nav: string) => path.includes(nav);
@@ -47,7 +47,7 @@ export const NavItems = (): NavItem[] => {
     },
     {
       name: "Logout",
-      href: "/main/closingshift",
+      href: "/public/shift/closingshift",
       icon: <LogOut className="stroke-current" width={20} height={20} />,
       active: false,
       position: "bottom",
