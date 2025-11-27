@@ -26,7 +26,7 @@ export default function ClosingShiftPage() {
       <div className="flex flex-col items-center justify-center w-full">
         <div className="flex justify-center mb-4">
           <Image
-            src="/icon/brand.svg"
+            src="/img/brand.png"
             alt="Tomoro Coffee"
             width={400}
             height={400}

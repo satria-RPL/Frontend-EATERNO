@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useFormStatus } from "react-dom";
+
 import type { LoginFormState } from "./actions";
 
 type LoginFormViewProps = {
@@ -13,18 +14,17 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
   return (
     <div className="min-h-screen">
       <nav className="w-full mb-12">
-        <div className="max-w-full mx-auto px-6 py-3">
+        <div className="max-w-full mx-auto px-8 py-8">
           <Image
-            src="/icon/brand.svg"
-            width={80}
-            height={80}
+            src="/img/brand.png"
+            width={200}
+            height={150}
             alt="Brand"
-            className="h-fit w-fit object-cover"
           />
         </div>
       </nav>
 
-      <div className="flex flex-row items-center justify-center gap-10 px-10 pb-12">
+      <div className="flex flex-row items-center justify-center px-10 pb-12">
         {/* KIRI: ILUSTRASI */}
         <div className="w-1/2 flex justify-center">
           <div>
@@ -38,13 +38,13 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
           </div>
         </div>
         {/* KANAN: FORM LOGIN */}
-        <div className="w-1/2 py-10 rounded-2xl shadow-sm border border-orange-100 px-10">
+        <div className="w-1/2 py-10 pr-50">
           <h1 className="text-2xl font-bold text-gray-900 mb-5 text-left">
             Welcome Back!
           </h1>
           <form action={formAction} className="space-y-5">
             <div>
-              <div className="flex items-center rounded-md border border-gray-300 py-2 focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-200 transition">
+              <div className="flex items-center rounded-md border border-neutral-700 py-2 focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-200 transition">
                 <Image
                   src="/icon/pin.jpg"
                   height={15}
@@ -68,8 +68,8 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
               )}
             </div>
 
-            <div className="mt-1 text-right text-xs">
-              <button type="button" className="text-orange-300">
+            <div className="mt-1 text-right font-medium">
+              <button type="button" className="text-orange-400">
                 Forgot PIN?
               </button>
             </div>

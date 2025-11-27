@@ -1,13 +1,18 @@
 "use client";
 
-import { addons } from "@/data/addons";
+import { useEffect, useMemo, useState } from "react";
+
+import { getAddonsForProduct, Addon } from "@/data/addons";
+import { useCartStore } from "@/data/cart";
 
 type AddOnsModalProps = {
   open: boolean;
   onClose: () => void;
   product?: {
+    price: number;
     id: number;
     name: string;
+    category?: string;
   } | null;
 };
 
@@ -16,55 +21,168 @@ export default function AddOnsModal({
   onClose,
   product,
 }: AddOnsModalProps) {
+  const [addons, setAddons] = useState<Addon[]>([]);
+  const [selectedAddonsMap, setSelectedAddonsMap] = useState<
+    Record<string, number>
+  >({});
+
+  useEffect(() => {
+    if (product) {
+      setAddons(getAddonsForProduct(product.id as any, product.category));
+    } else {
+      setAddons([]);
+    }
+    setSelectedAddonsMap({});
+  }, [product, open]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Addon[]>();
+    addons.forEach((a) => {
+      const key = a.category ?? "Other";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(a);
+    });
+    return Array.from(map.entries());
+  }, [addons]);
+
+  const total = useMemo(() => {
+    return Object.entries(selectedAddonsMap).reduce((sum, [id, qty]) => {
+      const addon = addons.find((a) => String(a.id) === id);
+      return sum + (addon ? addon.price * qty : 0);
+    }, 0);
+  }, [selectedAddonsMap, addons]);
+
+  const increment = (id: string) => {
+    setSelectedAddonsMap((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+  };
+
+  const decrement = (id: string) => {
+    setSelectedAddonsMap((prev) => {
+      const cur = prev[id] ?? 0;
+      if (cur <= 1) {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      }
+      return { ...prev, [id]: cur - 1 };
+    });
+  };
+
+  const addToCart = useCartStore((s) => s.addToCart);
+
+  const handleAdd = () => {
+    if (!product) return;
+
+    const formattedAddons = Object.entries(selectedAddonsMap).map(
+      ([id, qty]) => {
+        const addon = addons.find((a) => String(a.id) === id)!;
+        return {
+          id: String(addon.id),
+          name: addon.name,
+          price: addon.price,
+          qty,
+        };
+      }
+    );
+
+    addToCart({
+      productId: product.id,
+      productName: product.name,
+      price: product.price ?? 0,
+      qty: 1,
+      addons: formattedAddons,
+    });
+
+    onClose();
+  };
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl w-[600px] p-6 max-h-[80vh] overflow-y-auto hide-scrollbar">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-xl w-[640px] max-w-[95vw] h-[80vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 flex-none bg-white z-10">
           <h1 className="text-xl font-semibold">
-            Add - Ons {product ? ` · ${product.name}` : ""}
+            Add - Ons {product ? `— ${product.name}` : ""}
           </h1>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl"
+            className="text-red-500 text-lg font-semibold"
+            aria-label="close"
           >
-            ×
+            ✕
           </button>
         </div>
 
-        {addons.map((group) => (
-          <div key={group.id} className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">{group.category}</h2>
+        {/* Content */}
+        <div className="px-6 py-4 overflow-y-auto flex-1 hide-scrollbar">
+          {grouped.length === 0 && (
+            <div className="text-sm text-gray-500">No addons available.</div>
+          )}
 
-            <div className="space-y-2">
-              {group.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex justify-between items-center border p-3 rounded-lg bg-orange-50/40"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{item.name}</p>
-                    <p className="text-xs text-orange-600 font-semibold">
-                      Rp {item.price.toLocaleString("id-ID")}
-                    </p>
-                  </div>
+          {grouped.map(([category, items]) => (
+            <section key={category} className="mb-6">
+              <h2 className="text-lg font-medium mb-3">{category}</h2>
+              <div className="space-y-3">
+                {items.map((a) => {
+                  const idStr = String(a.id);
+                  const qty = selectedAddonsMap[idStr] ?? 0;
+                  return (
+                    <div
+                      key={idStr}
+                      className="flex items-center justify-between gap-4 rounded p-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gray-200 rounded-sm shrink-0" />
+                        <div>
+                          <div className="font-medium">{a.name}</div>
+                          <div className="text-sm text-orange-600 mt-1">
+                            {a.price > 0
+                              ? `Rp ${a.price.toLocaleString("id-ID")}`
+                              : "Gratis"}
+                          </div>
+                        </div>
+                      </div>
 
-                  {/* tombol + dummy dulu */}
-                  <button className="bg-orange-500 text-white px-3 py-1 rounded-lg text-sm">
-                    +
-                  </button>
-                </div>
-              ))}
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => decrement(idStr)}
+                          className="w-8 h-8 bg-red-500 text-white rounded-md flex items-center justify-center"
+                          aria-label={`decrease ${a.name}`}
+                        >
+                          −
+                        </button>
+                        <div className="min-w-7 text-center">{qty}</div>
+                        <button
+                          onClick={() => increment(idStr)}
+                          className="w-8 h-8 bg-orange-500 text-white rounded-md flex items-center justify-center"
+                          aria-label={`increase ${a.name}`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 flex-none bg-orange-50">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium">Total Add - Ons</div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleAdd}
+                className="px-4 py-2 bg-orange-500 text-white rounded-md"
+              >
+                {total > 0 ? `Rp ${total.toLocaleString("id-ID")}` : "Tambah"}
+              </button>
             </div>
           </div>
-        ))}
-
-        <div className="mt-4 flex justify-between items-center border-t pt-3">
-          <span className="text-sm font-medium text-gray-600">
-            Total Add - Ons
-          </span>
-          <span className="text-sm font-semibold text-orange-600">Rp 0</span>
         </div>
       </div>
     </div>

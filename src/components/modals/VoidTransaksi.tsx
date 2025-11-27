@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { Order } from "@/types/order";
 
@@ -14,7 +16,6 @@ export default function VoidModal({ open, onClose, onConfirm, order }: VoidModal
   const [pin, setPin] = useState("");
 
   useEffect(() => {
-    // Reset state when modal is opened/closed or order changes
     setReason("");
     setCustomReason("");
     setPin("");
@@ -23,9 +24,10 @@ export default function VoidModal({ open, onClose, onConfirm, order }: VoidModal
   if (!open || !order) return null;
 
   const handleSubmit = () => {
-    const finalReason = reason === "Lainnya" ? customReason : reason;
-    if (!finalReason || !pin) return;
-    onConfirm(finalReason, pin);
+    const finalReason = (reason === "Lainnya" ? customReason : reason).trim();
+    const pinTrimmed = pin.trim();
+    if (!finalReason || !pinTrimmed) return;
+    onConfirm(finalReason, pinTrimmed);
   };
 
   const reasons = ["Batal Pesan", "Salah Input", "Lainnya"];
