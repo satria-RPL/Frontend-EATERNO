@@ -8,13 +8,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { NavItems } from "@/config/nav-items";
+import { useNavItems } from "@/config/nav-items";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types/nav";
 import { usePersistentBoolean } from "@/lib/hooks/usePersistentBoolean";
 
 export default function SidebarLeft() {
-  const navItems = NavItems();
+  const navItems = useNavItems();
   const { value: isSidebarExpanded, toggle } = usePersistentBoolean(
     "sidebarExpanded",
     true
@@ -82,9 +82,9 @@ export function SideNavItem({
 }: SideNavItemProps) {
   const baseClasses =
     "relative flex items-center whitespace-nowrap rounded-md text-sm duration-100";
-  const activeClasses = "bg-pink-50 text-pink-600";
+  const activeClasses = "bg-orange-50 text-orange-500";
   const inactiveClasses =
-    "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 dark:hover:bg-pink-50 dark:hover:text-pink-600";
+    "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 dark:hover:bg-orange-50 dark:hover:text-orange-600";
 
   return isSidebarExpanded ? (
     <Link

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function ProductsIndex() {
-  redirect("products/ordertype");
+  redirect("/main/products/ordertype");
 }

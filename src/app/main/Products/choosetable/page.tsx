@@ -11,7 +11,7 @@ export default function ChooseTable() {
 
   const handleContinue = () => {
     if (!selected) return;
-    router.push("list");
+    router.push("/main/products/list");
   };
 
   return (

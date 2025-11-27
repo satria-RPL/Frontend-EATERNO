@@ -24,13 +24,11 @@ export default function TotalBalance() {
         <StatItem
           label="Total Income"
           value={`Rp ${totalIncome.toLocaleString("id-ID")}`}
-          color="text-green-600"
         />
 
         <StatItem
           label="Total Expense"
           value={`Rp ${totalExpense.toLocaleString("id-ID")}`}
-          color="text-red-500"
         />
       </div>
     </Card>

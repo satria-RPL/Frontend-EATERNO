@@ -6,6 +6,6 @@ export interface Order {
   payment: string;
   price: number;
   items: number;
-  date: string; // ISO yyyy-mm-dd
+  date: string;
   status: OrderStatus;
 }

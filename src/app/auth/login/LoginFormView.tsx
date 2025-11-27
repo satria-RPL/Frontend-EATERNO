@@ -11,8 +11,8 @@ type LoginFormViewProps = {
 
 export function LoginFormView({ state, formAction }: LoginFormViewProps) {
   return (
-    <div className="min-h-screen bg-white">
-      <nav className="w-full bg-white mb-12">
+    <div className="min-h-screen">
+      <nav className="w-full mb-12">
         <div className="max-w-full mx-auto px-6 py-3">
           <Image
             src="/icon/brand.svg"
@@ -38,7 +38,7 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
           </div>
         </div>
         {/* KANAN: FORM LOGIN */}
-        <div className="w-1/2 py-10 bg-white rounded-2xl shadow-sm border border-orange-100 px-10">
+        <div className="w-1/2 py-10 rounded-2xl shadow-sm border border-orange-100 px-10">
           <h1 className="text-2xl font-bold text-gray-900 mb-5 text-left">
             Welcome Back!
           </h1>

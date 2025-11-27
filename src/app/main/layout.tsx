@@ -5,11 +5,11 @@ import Navbar from "@/components/Navbar";
 import SideNav from "@/components/SidebarLeft";
 
 export default async function MainLayout({ children }: { children: ReactNode }) {
-  const cookieStore = cookies();
-  const rawSession = (await cookieStore).get("auth_token")?.value ?? null;
+  const cookieStore = await cookies();
+  const rawSession = cookieStore.get("auth_token")?.value ?? null;
 
-  let userName = "Guest";
-  let role = "Kasir";
+  let userName = "";
+  let role = "";
 
   if (rawSession) {
     try {
