@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react"; // ← ditambahkan untuk state
+import { useState } from "react";
+import { ReceiptText, CheckCircle2, CircleSlash2 } from "lucide-react";
 
 export default function SidebarRight() {
   // ---------- STATE UNTUK PEMBAYARAN & CUPON ----------
@@ -16,6 +17,14 @@ export default function SidebarRight() {
       setSelectedCoupons([...selectedCoupons, coupon]);
     }
   };
+
+  // Daftar cupon (tambahkan sesuai kebutuhan)
+  const coupons = [
+    { name: "GEBYAR HARI RAYA" },
+    { name: "17 AGUSTUS" },
+    { name: "DISKON NATAL" },
+    { name: "IMLEK 2026" },
+  ];
 
   return (
     <aside
@@ -105,10 +114,10 @@ export default function SidebarRight() {
               <button
                 key={m}
                 onClick={() => setPaymentMethod(m)} // ← ditambahkan
-                className={`px-3 py-1 rounded-full border text-xs ${
+                className={`px-3 py-1 border text-xs rounded-[5px] ${
                   paymentMethod === m
-                    ? "bg-orange-500 text-white"
-                    : "bg-white"
+                    ? " bg-orange-500 text-white"
+                    : "bg-white border border-gray-200"
                 }`} // ← conditional styling
               >
                 {m}
@@ -121,29 +130,34 @@ export default function SidebarRight() {
         <div className="mb-4">
           <p className="text-xs font-semibold mb-2">Cupon Disc</p>
           <div className="space-y-2 text-xs">
-            {[
-              { name: "GEBYAR HARI RAYA" },
-              { name: "17 AGUSTUS" },
-            ].map((coupon) => (
-              <button
-                key={coupon.name}
-                onClick={() => toggleCoupon(coupon.name)} // ← ditambahkan
-                className={`w-full flex justify-between items-center px-3 py-2 rounded-lg text-xs ${
-                  selectedCoupons.includes(coupon.name)
-                    ? "bg-orange-100 text-orange-600"
-                    : "bg-gray-100 text-gray-500"
-                }`} // ← conditional styling
-              >
-                <span>{coupon.name}</span>
-                <span>
-                  {selectedCoupons.includes(coupon.name) ? "●" : "○"}
-                </span>
-              </button>
-            ))}
+            {coupons.map((coupon) => {
+              const active = selectedCoupons.includes(coupon.name);
+              return (
+                <button
+                  key={coupon.name}
+                  onClick={() => toggleCoupon(coupon.name)}
+                  className={`w-full flex justify-between items-center px-3 py-2 rounded-lg text-xs font-semibold
+                  ${
+                    active
+                      ? "bg-orange-100 text-orange-600"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {active ? (
+                      <CheckCircle2 size={18} className="text-orange-500" />
+                    ) : (
+                      <CircleSlash2 size={18} className="text-gray-400" />
+                    )}
+                    {coupon.name}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* PEMBAYARAN CASH */}
+        {/* PEMBAYARAN CASH
         <div className="mb-4">
           <p className="text-xs font-semibold mb-1">Pembayaran Cash</p>
           <input
@@ -155,10 +169,11 @@ export default function SidebarRight() {
             <span>Return</span>
             <span className="text-orange-500 font-semibold">Rp 500.000</span>
           </div>
-        </div>
+        </div> */}
 
         {/* BUTTON PROSES */}
-        <button className="w-full bg-orange-500 text-white py-3 rounded-2xl text-sm font-semibold">
+        <button className="w-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold mt-4 text-white transition">
+          <ReceiptText size={20} className="mr-1" />
           Proses Order
         </button>
       </div>
