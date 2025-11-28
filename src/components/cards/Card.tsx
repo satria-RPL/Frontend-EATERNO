@@ -1,9 +1,15 @@
-import { ReactNode } from "react";
+import React, { ReactNode } from 'react';
 
-// komponen Card untuk membungkus konten dengan gaya kartu
-export default function Card({ children }: { children: ReactNode }) {
+type Props = {
+  children?: ReactNode;
+  className?: string;
+};
+
+export default function Card({ children, className }: Props) {
   return (
-    <div className="bg-[#F8F8FA] rounded-xl shadow p-5">
+    <div
+      className={`bg-[#F8F8FA] shadow-md rounded-2xl p-4 ${className}`}
+    >
       {children}
     </div>
   );

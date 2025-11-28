@@ -2,34 +2,60 @@
 
 import incomeData from "@/data/income.json";
 import Card from "../cards/Card";
-import StatItem from "../cards/StatItem";
+import { FaChartLine } from "react-icons/fa";
+import { FaWallet } from "react-icons/fa";
 
-// komponen TotalBalance untuk menampilkan saldo total
 export default function TotalBalance() {
-  const totalIncome =
-    incomeData.food + incomeData.drink + incomeData.others;
-
-  const totalExpense = 9500000;
+  const totalIncome = incomeData.food + incomeData.drink + incomeData.others;
+  const totalExpense = 1550020; // sementara fixed
   const balance = totalIncome - totalExpense;
 
   return (
-    <Card>
-      <h2 className="text-xl font-semibold font-[Poppins] mb-4">Total Balance</h2>
+    <Card className="p-6">
+      <h2 className="text-xl font-semibold font-[Poppins] mb-3">Total Balance</h2>
 
-      <div className="text-3xl font-[Outfit] font-semibold text-orange-500 text-center py-5">
+      {/* Balance besarnya */}
+      <div className="text-4xl font-[Outfit] font-semibold text-orange-500 text-center py-4">
         Rp {balance.toLocaleString("id-ID")}
       </div>
 
-      <div className="mt-4 space-y-2">
-        <StatItem
-          label="Total Income"
-          value={`Rp ${totalIncome.toLocaleString("id-ID")}`}
-        />
+      {/* Income & Expense */}
+      <div className="mt-4 space-y-4">
+        {/* Income */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+              <FaChartLine className="text-orange-500 text-lg" />
+            </div>
 
-        <StatItem
-          label="Total Expense"
-          value={`Rp ${totalExpense.toLocaleString("id-ID")}`}
-        />
+            <div>
+              <p className="text-sm font-[Poppins]">Total Income</p>
+              <p className="font-semibold text-orange-500">
+                Rp {totalIncome.toLocaleString("id-ID")}
+              </p>
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-500 font-[Poppins]">(+60% increase)</p>
+        </div>
+
+        {/* Expense */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+              <FaWallet className="text-gray-700 text-lg" />
+            </div>
+
+            <div>
+              <p className="text-sm font-[Poppins]">Total Expense</p>
+              <p className="font-semibold text-gray-700">
+                Rp {totalExpense.toLocaleString("id-ID")}
+              </p>
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-500 font-[Poppins]">(+10% increase)</p>
+        </div>
       </div>
     </Card>
   );

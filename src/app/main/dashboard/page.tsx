@@ -19,22 +19,25 @@ export default async function DashboardPage() {
       userName = rawSession;
     }
   }
+
   return (
-    <div className="p-2 space-y-4 min-h-screen">
+    <div className="p-4 space-y-6 min-h-screen">
       <h1 className="text-2xl font-bold">Manager Dashboard</h1>
-      <div className="flex flex-col justify-between items-center">
-        {/* ROW 1 */}
-        <div className="flex gap-6 mb-6 pb-3">
+
+      {/* WRAPPER */}
+      <div className="flex flex-col gap-y-6">
+
+        {/* ================= ROW 1 ================= */}
+        <div className="w-full flex justify-between gap-6">
           <div className="w-[603px] h-[302px]">
             <ShiftStats userName={userName} />
           </div>
 
-          {/* Card kosong sebelah kanan */}
           <div className="w-[428px] h-[292px] bg-[#F8F8FA] rounded-xl shadow" />
         </div>
 
-        {/* ROW 2 */}
-        <div className="flex gap-6 mb-6 py-5">
+        {/* ================= ROW 2 ================= */}
+        <div className="w-full flex justify-between gap-6 py-5">
           <div className="w-[503px] h-[335px]">
             <TotalIncome />
           </div>
@@ -44,8 +47,8 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* ROW 3 */}
-        <div className="flex gap-6 py-5">
+        {/* ================= ROW 3 ================= */}
+        <div className="w-full flex justify-between gap-6">
           <div className="w-[616px] h-[346px]">
             <TotalBalance />
           </div>
@@ -54,6 +57,7 @@ export default async function DashboardPage() {
             <BestSeller />
           </div>
         </div>
+
       </div>
     </div>
   );

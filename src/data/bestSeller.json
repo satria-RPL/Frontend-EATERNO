@@ -1,4 +1,6 @@
 [
-  { "name": "Grill Sandwich", "price": 35000, "sold": 500 },
-  { "name": "Grill Sandwich", "price": 50000, "sold": 500 }
+  { "name": "Grill Sandwich", "price": 30000, "sold": 500 },
+  { "name": "Grill Sandwich", "price": 50000, "sold": 500 },
+  { "name": "Grill Sandwich", "price": 25000, "sold": 500 },
+  { "name": "Grill Sandwich", "price": 75000, "sold": 500 }
 ]
