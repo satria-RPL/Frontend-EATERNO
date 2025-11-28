@@ -7,7 +7,7 @@ export default function ProductsListLayout({
 }) {
   return (
     <div>
-      <main className="pr-80 bg-slate-100">{children}</main>
+      <main className="pr-80">{children}</main>
       <SidebarRight />
     </div>
   );

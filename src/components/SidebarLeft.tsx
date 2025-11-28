@@ -12,6 +12,7 @@ import { useNavItems } from "@/config/nav-items";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types/nav";
 import { usePersistentBoolean } from "@/lib/hooks/usePersistentBoolean";
+import { useEffect } from "react";
 
 export default function SidebarLeft() {
   const navItems = useNavItems();
@@ -19,6 +20,12 @@ export default function SidebarLeft() {
     "sidebarExpanded",
     true
   );
+
+  // ⬇️ Update CSS variable otomatis setiap toggle
+  useEffect(() => {
+    const width = isSidebarExpanded ? "12rem" : "5rem";
+    document.documentElement.style.setProperty("--sidebar-width", width);
+  }, [isSidebarExpanded]);
 
   const topItems = navItems.filter((item) => item.position === "top");
   const bottomItems = navItems.filter((item) => item.position === "bottom");

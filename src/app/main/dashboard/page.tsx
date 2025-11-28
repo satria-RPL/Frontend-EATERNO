@@ -83,7 +83,7 @@ export default async function DashboardPage() {
   }
   return (
     <div className="p-2 space-y-4 min-h-screen">
-      <h1 className="text-2xl font-bold ml-20">Manager Dashboard</h1>
+      <h1 className="text-2xl font-bold">Manager Dashboard</h1>
       <div className="flex flex-col justify-between items-center">
         {/* ROW 1 */}
         <div className="flex gap-6 mb-6 pb-3">
