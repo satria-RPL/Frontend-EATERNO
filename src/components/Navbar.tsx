@@ -42,11 +42,10 @@ export default function Navbar({
         <div className="relative flex h-16 w-full items-center justify-between">
           <div className="text-lg font-bold text-gray-800">
             <Image
-              src="/icon/brand.svg"
-              width={80}
-              height={80}
+              src="/img/brand.png"
+              width={150}
+              height={150}
               alt="Eaterno brand"
-              className="h-fit w-fit object-cover"
             />
           </div>
 

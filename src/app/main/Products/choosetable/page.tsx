@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+
 import TableCard from "@/components/cards/TableCard";
 import { tablesSmall, tablesLarge } from "@/data/tables";
 
@@ -11,7 +12,7 @@ export default function ChooseTable() {
 
   const handleContinue = () => {
     if (!selected) return;
-    router.push("/main/products/list");
+    router.push(`/main/products/list?table=${selected}`);
   };
 
   return (

@@ -10,9 +10,11 @@ export default function OpenShiftPage() {
   const [showModal, setShowModal] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const amountNumber = Number(amount);
+  const isAmountValid = !Number.isNaN(amountNumber) && amountNumber > 0;
 
   const handleContinue = () => {
-    if (!amount) return;
+    if (!isAmountValid) return;
     setShowModal(true);
   };
 
@@ -24,7 +26,7 @@ export default function OpenShiftPage() {
     <div className="flex flex-col items-center justify-center min-h-screen">
       <div className="flex justify-center mb-4">
         <Image
-          src="/icon/brand.svg"
+          src="/img/brand.png"
           alt="Tomoro Coffee"
           width={400}
           height={400}
@@ -36,6 +38,7 @@ export default function OpenShiftPage() {
       </label>
       <input
         type="number"
+        min={0}
         className="border rounded-lg px-4 py-2 w-full text-center mb-6"
         placeholder="Rp"
         value={amount}
@@ -43,11 +46,11 @@ export default function OpenShiftPage() {
       />
       <button
         className={`w-full py-3 rounded-lg font-medium text-white transition ${
-          amount && !isPending
+          isAmountValid && !isPending
             ? "bg-orange-500 hover:bg-orange-600"
             : "bg-gray-300 cursor-not-allowed"
         }`}
-        disabled={!amount || isPending}
+        disabled={!isAmountValid || isPending}
         onClick={handleContinue}
       >
         Continue
@@ -55,7 +58,7 @@ export default function OpenShiftPage() {
 
       <ShiftModal
         open={showModal}
-        amount={Number(amount || 0)}
+        amount={isAmountValid ? amountNumber : 0}
         onCancel={() => setShowModal(false)}
         onContinue={handleModalContinue}
         pending={isPending}
