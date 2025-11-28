@@ -4,6 +4,25 @@ import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ReceiptText, CheckCircle2, CircleSlash2 } from "lucide-react";
 import { useState } from "react";
+import { Wallet, QrCode, Landmark } from "lucide-react";
+
+const paymentOptions = [
+  {
+    value: "Cash",
+    label: "Cash",
+    icon: <Wallet size={14} />,
+  },
+  {
+    value: "Qris",
+    label: "QRIS",
+    icon: <QrCode size={14} />,
+  },
+  {
+    value: "Bank",
+    label: "Bank",
+    icon: <Landmark size={14} />,
+  },
+];
 
 import { useCartStore } from "@/data/cart";
 import Loading from "./ui/Loading";
@@ -195,21 +214,19 @@ export default function SidebarRight() {
               {/* PEMBAYARAN VIA */}
               <div className="mb-4">
                 <p className="text-xs font-semibold mb-2">Pembayaran Via</p>
+
                 <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: "Cash", label: "Cash" },
-                    { value: "Qris", label: "QRIS" },
-                    { value: "Bank", label: "Bank" },
-                  ].map((m) => (
+                  {paymentOptions.map((m) => (
                     <button
                       key={m.value}
                       onClick={() => setPaymentMethod(m.value)}
-                      className={`px-3 py-1 rounded-full border text-xs ${
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-[5px] border text-xs transition ${
                         paymentMethod === m.value
                           ? "bg-orange-500 text-white border-orange-500"
                           : "bg-white text-gray-600 border-gray-200"
                       }`}
                     >
+                      {m.icon}
                       {m.label}
                     </button>
                   ))}

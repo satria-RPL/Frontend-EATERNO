@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import { useCartStore } from "@/data/cart";
 import Loading from "@/components/ui/Loading";
+import { Wallet, QrCode, Landmark } from "lucide-react";
 
 type PaymentMethod = "Qris" | "Cash" | "Bank";
 
@@ -51,16 +52,19 @@ export default function PaymentPage() {
         <div className="flex gap-2 mb-4 text-xs">
           <TabButton
             label="QRIS"
+            icon={<QrCode size={16} />}
             active={method === "Qris"}
             onClick={() => setMethod("Qris")}
           />
           <TabButton
             label="Cash"
+            icon={<Wallet size={16} />}
             active={method === "Cash"}
             onClick={() => setMethod("Cash")}
           />
           <TabButton
             label="Bank"
+            icon={<Landmark size={16} />}
             active={method === "Bank"}
             onClick={() => setMethod("Bank")}
           />
@@ -88,21 +92,24 @@ function TabButton({
   label,
   active,
   onClick,
+  icon,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  icon: React.ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`py-2 px-9 rounded-md border text-center transition font-semibold
+      className={`py-2 px-5 rounded-md border flex items-center gap-2 transition font-semibold
       ${
         active
-          ? "bg-orange-500 text-white"
+          ? "bg-orange-500 text-white border-orange-500"
           : "bg-white border-orange-300 text-orange-500"
       }`}
     >
+      {icon}
       {label}
     </button>
   );
