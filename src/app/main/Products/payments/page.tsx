@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useCartStore } from "@/data/cart";
-import Loading from "@/components/ui/Loading";
 import { Wallet, QrCode, Landmark } from "lucide-react";
 
 type PaymentMethod = "Qris" | "Cash" | "Bank";

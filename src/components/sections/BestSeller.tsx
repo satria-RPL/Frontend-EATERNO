@@ -1,6 +1,5 @@
 "use client";
 
-import bestData from "@/data/bestSeller.json"; // tetap ada, tidak aku hapus
 import { products } from "@/data/products";     // ⬅ tambahan
 import Card from "../cards/Card";
 import Image from "next/image";
@@ -13,6 +12,7 @@ export default function BestSeller() {
     .sort((a, b) => b.available - a.available) // pakai available sebagai dummy sold
     .slice(0, 4)
     .map((p) => ({
+      id: p.id,
       name: p.name,
       price: p.price,
       sold: p.available,
@@ -24,9 +24,9 @@ export default function BestSeller() {
       <h2 className="text-lg font-[Poppins] font-semibold mb-4">Best Seller</h2>
 
       <div className="space-y-1.5">
-        {bestSellerFromProducts.map((item, index) => (
+        {bestSellerFromProducts.map((item) => (
           <div
-            key={index}
+            key={item.id}
             className="flex items-center justify-between"
           >
             {/* Left: Image + name + price */}

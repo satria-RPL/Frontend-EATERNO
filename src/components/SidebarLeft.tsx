@@ -41,7 +41,7 @@ export default function SidebarLeft() {
       <button
         type="button"
         onClick={toggle}
-        className="absolute top-16 -right-3 flex h-6 w-6 items-center justify-center border-gray-200 border-2 rounded-full bg-accent shadow-md hover:shadow-lg transition-shadow duration-300 ease-in-out"
+        className="absolute top-16 -right-3 flex h-6 w-6 items-center justify-center border-gray-200 border-2 rounded-full bg-whitekj shadow-md hover:shadow-lg transition-shadow duration-300 ease-in-out"
       >
         {isSidebarExpanded ? (
           <ChevronLeft size={18} className="stroke-gray-500" />

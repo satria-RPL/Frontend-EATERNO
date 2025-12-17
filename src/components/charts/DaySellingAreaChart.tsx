@@ -7,6 +7,7 @@ import {
   YAxis,
   Tooltip,
   XAxis,
+  ResponsiveContainer,
 } from "recharts";
 
 interface SellingData {
@@ -43,62 +44,72 @@ export default function DaySellingAreaChart({ data }: { data: SellingData[] }) {
 
   return (
     <div>
-      {/* Chart */}
-      <AreaChart width={400} height={200} data={data}>
-        <XAxis dataKey="day" />
-        <defs>
-          {/* FOOD */}
-          <linearGradient id="food" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#F97316" stopOpacity={0.8} />
-            <stop offset="95%" stopColor="#F97316" stopOpacity={0.1} />
-          </linearGradient>
+      <div className="w-full h-56">
+        {/* samain/atur sesuai tinggi card */}
+        <ResponsiveContainer width="95%" height="100%">
+          {/* Chart */}
+          <AreaChart
+            width={300}
+            height={200}
+            data={data}
+            className="object-contain w-full h-full"
+          >
+            <XAxis dataKey="day" />
+            <defs>
+              {/* FOOD */}
+              <linearGradient id="food" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#F97316" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#F97316" stopOpacity={0.1} />
+              </linearGradient>
 
-          {/* DRINK */}
-          <linearGradient id="drink" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#0EA5E9" stopOpacity={0.8} />
-            <stop offset="95%" stopColor="#0EA5E9" stopOpacity={0.1} />
-          </linearGradient>
+              {/* DRINK */}
+              <linearGradient id="drink" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#0EA5E9" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#0EA5E9" stopOpacity={0.1} />
+              </linearGradient>
 
-          {/* OTHERS */}
-          <linearGradient id="others" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#6B7280" stopOpacity={0.8} />
-            <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1} />
-          </linearGradient>
-        </defs>
+              {/* OTHERS */}
+              <linearGradient id="others" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#6B7280" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1} />
+              </linearGradient>
+            </defs>
 
-        {/* Custom Y ticks */}
-        <YAxis ticks={[0, 20, 40, 60, 80, 100]} />
+            {/* Custom Y ticks */}
+            <YAxis ticks={[0, 20, 40, 60, 80, 100]} />
 
-        <CartesianGrid strokeDasharray="3 3" />
-        <Tooltip />
+            <CartesianGrid strokeDasharray="3 3" />
+            <Tooltip />
 
-        {/* FOOD */}
-        <Area
-          type="monotone"
-          dataKey="food"
-          stroke="#F97316"
-          fill="url(#food)"
-          dot={{ r: 4 }}
-        />
+            {/* FOOD */}
+            <Area
+              type="monotone"
+              dataKey="food"
+              stroke="#F97316"
+              fill="url(#food)"
+              dot={{ r: 4 }}
+            />
 
-        {/* DRINK */}
-        <Area
-          type="monotone"
-          dataKey="drink"
-          stroke="#0EA5E9"
-          fill="url(#drink)"
-          dot={{ r: 4 }}
-        />
+            {/* DRINK */}
+            <Area
+              type="monotone"
+              dataKey="drink"
+              stroke="#0EA5E9"
+              fill="url(#drink)"
+              dot={{ r: 4 }}
+            />
 
-        {/* OTHERS */}
-        <Area
-          type="monotone"
-          dataKey="others"
-          stroke="#6B7280"
-          fill="url(#others)"
-          dot={{ r: 4 }}
-        />
-      </AreaChart>
+            {/* OTHERS */}
+            <Area
+              type="monotone"
+              dataKey="others"
+              stroke="#6B7280"
+              fill="url(#others)"
+              dot={{ r: 4 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
 
       {/* Cleaner Legend: map dari konfigurasi, memakai SVG connector icon */}
       <div className="flex gap-6 mt-3 text-sm items-center justify-center">
@@ -110,23 +121,5 @@ export default function DaySellingAreaChart({ data }: { data: SellingData[] }) {
         ))}
       </div>
     </div>
-    //       {/* Legend */}
-    //   <div className="flex gap-4 mt-3 text-sm">
-    //     <div className="flex items-center gap-2">
-    //       <div className="w-4 h-4 bg-orange-500 rounded-sm"></div>
-    //       Food
-    //     </div>
-
-    //     <div className="flex items-center gap-2">
-    //       <div className="w-4 h-4 bg-sky-500 rounded-sm"></div>
-    //       Drink
-    //     </div>
-
-    //     <div className="flex items-center gap-2">
-    //       <div className="w-4 h-4 bg-gray-500 rounded-sm"></div>
-    //       Others
-    //     </div>
-    //   </div>
-    // </div>
   );
 }

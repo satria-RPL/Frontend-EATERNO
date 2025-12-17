@@ -5,7 +5,7 @@ export default function ProductsLayout({
   children: React.ReactNode;
 }) {
   return (
-      <main>
+      <main className="pl-10">
         {children}
       </main> );
 }

@@ -43,7 +43,25 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
             Welcome Back!
           </h1>
           <form action={formAction} className="space-y-5">
-            <div>
+            <div className="space-y-3">
+              <div className="flex items-center rounded-md border border-neutral-700 py-2 focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-200 transition">
+                <Image
+                  src="/icon/pin.jpg"
+                  height={15}
+                  width={15}
+                  alt="user"
+                  className="mx-3"
+                />
+                <input
+                  type="text"
+                  name="username"
+                  placeholder="Username"
+                  autoComplete="username"
+                  className="w-full outline-none text-sm text-gray-700 bg-transparent"
+                  required
+                />
+              </div>
+
               <div className="flex items-center rounded-md border border-neutral-700 py-2 focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-200 transition">
                 <Image
                   src="/icon/pin.jpg"
@@ -55,8 +73,9 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
                 <input
                   type="password"
                   inputMode="numeric"
-                  name="pin"
+                  name="password"
                   placeholder="PIN"
+                  autoComplete="current-password"
                   className="w-full outline-none text-sm text-gray-700 bg-transparent"
                   required
                 />

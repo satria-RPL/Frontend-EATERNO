@@ -28,3 +28,64 @@ export async function clearSessionCookie() {
 export function getSessionToken(request: NextRequest) {
   return request.cookies.get(SESSION_COOKIE_NAME)?.value ?? null;
 }
+
+export type AuthCookiePayload = {
+  token?: string;
+  tokenType?: string;
+  refreshToken?: string;
+  name?: string;
+  role?: unknown;
+  username?: string;
+};
+
+export async function getAuthCookiePayload(): Promise<AuthCookiePayload | null> {
+  const raw = (await cookies()).get(SESSION_COOKIE_NAME)?.value ?? null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AuthCookiePayload;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeRole(value: unknown) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    const maybeRole = value as { name?: string; description?: string; role?: string };
+    return maybeRole.name ?? maybeRole.description ?? maybeRole.role ?? "";
+  }
+  return String(value);
+}
+
+export type SessionUser = {
+  name: string;
+  username: string;
+  role: string;
+};
+
+export function mapAuthPayloadToUser(payload: AuthCookiePayload | null): SessionUser {
+  return {
+    name: payload?.name ?? payload?.username ?? "",
+    username: payload?.username ?? "",
+    role: normalizeRole(payload?.role),
+  };
+}
+
+export async function getSessionUser(): Promise<SessionUser> {
+  const payload = await getAuthCookiePayload();
+  return mapAuthPayloadToUser(payload);
+}
+
+export async function getAuthTokenFromCookie(): Promise<{
+  token: string;
+  tokenType: string;
+} | null> {
+  const payload = await getAuthCookiePayload();
+  if (!payload?.token) return null;
+
+  return {
+    token: payload.token,
+    tokenType: payload.tokenType ?? "Bearer",
+  };
+}

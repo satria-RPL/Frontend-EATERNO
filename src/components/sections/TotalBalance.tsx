@@ -12,10 +12,10 @@ export default function TotalBalance() {
 
   return (
     <Card className="p-6">
-      <h2 className="text-xl font-semibold font-[Poppins] mb-3">Total Balance</h2>
+      <h2 className="text-xl font-semibold mb-3">Total Balance</h2>
 
       {/* Balance besarnya */}
-      <div className="text-4xl font-[Outfit] font-semibold text-orange-500 text-center py-4">
+      <div className="text-4xl font-semibold text-orange-500 text-center py-4">
         Rp {balance.toLocaleString("id-ID")}
       </div>
 
@@ -29,7 +29,7 @@ export default function TotalBalance() {
             </div>
 
             <div>
-              <p className="text-sm font-[Poppins]">Total Income</p>
+              <p className="text-sm">Total Income</p>
               <p className="font-semibold text-orange-500">
                 Rp {totalIncome.toLocaleString("id-ID")}
               </p>
