@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ReceiptText, CheckCircle2, CircleSlash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Wallet, QrCode, Landmark } from "lucide-react";
 
 const paymentOptions = [
@@ -51,12 +51,25 @@ export default function SidebarRight() {
     }
   };
 
-  const coupons = [
-    { name: "GEBYAR HARI RAYA" },
-    { name: "17 AGUSTUS" },
-    { name: "DISKON NATAL" },
-    { name: "IMLEK 2026" },
-  ];
+  type PromotionRule = {
+    type: "percentage_discount" | "fixed_discount";
+    value: number;
+  };
+
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+
+  type Coupon = {
+    name: string;
+    rules: PromotionRule[];
+  };
+
+  useEffect(() => {
+  fetch("http://localhost:3000/api/coupons?placeId=1")
+    .then((res) => res.json())
+    .then((data) => setCoupons(data))
+    .catch((err) => console.error("Failed load coupons", err));
+}, []);
+
 
   const cart = useCartStore((s) => s.cart);
   const removeFromCart = useCartStore((s) => s.removeFromCart);
@@ -66,7 +79,27 @@ export default function SidebarRight() {
   const itemsCount = cart.reduce((sum, i) => sum + (i.qty || 0), 0);
   const subtotal = getSubtotal();
   const taxPercent = 10;
-  const discount = 0;
+  const discount = (() => {
+  let totalDiscount = 0;
+
+  const activeCoupons = coupons.filter((c) =>
+    selectedCoupons.includes(c.name)
+  );
+
+  for (const coupon of activeCoupons) {
+    for (const rule of coupon.rules ?? []) {
+      if (rule.type === "percentage_discount") {
+        totalDiscount += (subtotal * rule.value) / 100;
+      }
+
+      if (rule.type === "fixed_discount") {
+        totalDiscount += rule.value;
+      }
+    }
+  }
+
+  return Math.min(totalDiscount, subtotal);
+})();
   const rounding = 0;
   const tax = Math.round((subtotal * taxPercent) / 100);
   const total = getTotal({ taxPercent, discount, rounding });

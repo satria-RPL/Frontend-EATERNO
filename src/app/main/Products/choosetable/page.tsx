@@ -1,27 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import TableCard from "@/components/cards/TableCard";
-import { tablesSmall, tablesLarge } from "@/data/tables";
+import { TablesService } from "@/services/tables.service";
+
+type TableUI = {
+  id: number;
+  label: string;
+  disabled: boolean;
+  size: "small" | "large";
+};
 
 export default function ChooseTable() {
+  const [tables, setTables] = useState<TableUI[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    TablesService.getAll()
+      .then((data) => {
+        const mapped: TableUI[] = data.map((t) => ({
+          id: t.id,
+          label: t.name,
+          disabled: t.status === "occupied",
+          size: t.placeId === 1 ? "small" : "large", 
+          // ⬆️ sementara, nanti bisa ganti pakai capacity
+        }));
+        setTables(mapped);
+      })
+      .catch((err) => console.error(err));
+  }, []);
 
   const handleContinue = () => {
     if (!selected) return;
     router.push(`/main/products/list?table=${selected}`);
   };
 
+  const smallTables = tables.filter((t) => t.size === "small");
+  const largeTables = tables.filter((t) => t.size === "large");
+
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-6">Choose Table</h1>
 
-      {/* --- Small Capacity --- */}
+      {/* Small */}
       <div className="grid grid-cols-8 gap-4 mb-10">
-        {tablesSmall.map((t) => (
+        {smallTables.map((t) => (
           <TableCard
             key={t.id}
             label={t.label}
@@ -33,10 +59,10 @@ export default function ChooseTable() {
         ))}
       </div>
 
-      {/* --- Large Capacity --- */}
+      {/* Large */}
       <h2 className="font-medium mb-5">Kapasitas 3 Orang Ke Atas:</h2>
       <div className="grid grid-cols-4 gap-4">
-        {tablesLarge.map((t) => (
+        {largeTables.map((t) => (
           <TableCard
             key={t.id}
             label={t.label}
