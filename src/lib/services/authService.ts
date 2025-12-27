@@ -2,6 +2,8 @@ import { apiRequest } from "@/lib/api";
 
 type LoginApiResponse = {
   token?: string;
+  accessToken?: string;
+  access_token?: string;
   tokenType?: string;
   token_type?: string;
   refreshToken?: string;
@@ -10,6 +12,8 @@ type LoginApiResponse = {
   data?: {
     user?: unknown;
     token?: string;
+    accessToken?: string;
+    access_token?: string;
     tokenType?: string;
     token_type?: string;
     refreshToken?: string;
@@ -17,6 +21,27 @@ type LoginApiResponse = {
   };
   profile?: unknown;
 };
+
+function toOptionalString(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return undefined;
+}
+
+function normalizeRole(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (value && typeof value === "object") {
+    const roleObj = value as Record<string, unknown>;
+    return (
+      toOptionalString(roleObj["name"]) ??
+      toOptionalString(roleObj["description"]) ??
+      toOptionalString(roleObj["role"]) ??
+      ""
+    );
+  }
+  return "";
+}
 
 export async function loginService(username: string, password: string) {
   try {
@@ -44,22 +69,33 @@ export async function loginService(username: string, password: string) {
         userObj?.["roleName"] ??
         userObj?.["position"]) ?? null;
 
-    const role =
-      typeof rawRole === "string"
-        ? rawRole
-        : (rawRole as Record<string, unknown> | null)?.["name"] ??
-          (rawRole as Record<string, unknown> | null)?.["description"] ??
-          "";
+    const role = normalizeRole(rawRole);
+    const name =
+      toOptionalString(userObj?.["name"]) ??
+      toOptionalString(userObj?.["fullName"]) ??
+      toOptionalString(userObj?.["username"]) ??
+      username;
+    const resolvedUsername = toOptionalString(userObj?.["username"]) ?? username;
+
+    const token =
+      data.token ??
+      data.accessToken ??
+      data.access_token ??
+      data.data?.token ??
+      data.data?.accessToken ??
+      data.data?.access_token;
+
+    const tokenType =
+      data.tokenType ??
+      data.token_type ??
+      data.data?.tokenType ??
+      data.data?.token_type ??
+      "Bearer";
 
     return {
       success: true,
-      token: data.token ?? data.data?.token,
-      tokenType:
-        data.tokenType ??
-        data.token_type ??
-        data.data?.tokenType ??
-        data.data?.token_type ??
-        "Bearer",
+      token,
+      tokenType,
       refreshToken:
         data.refreshToken ??
         data.refresh_token ??
@@ -67,12 +103,8 @@ export async function loginService(username: string, password: string) {
         data.data?.refresh_token,
       user: user
         ? {
-            name:
-              userObj?.["name"] ??
-              userObj?.["fullName"] ??
-              userObj?.["username"] ??
-              username,
-            username: userObj?.["username"] ?? username,
+            name,
+            username: resolvedUsername,
             role,
           }
         : undefined,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchOrders } from "@/lib/orderService";
 import { Order } from "@/types/order";
 import Pagination from "@/components/ui/Pagination";
@@ -92,7 +92,7 @@ export default function OrderTable() {
                   <td className="py-4 px-6">
                     {o.status === "proses" && (
                       <button className="flex items-center gap-2 px-2 py-0.5 rounded-full text-sm font-medium bg-red-100 text-[#EB5714] border border-[#EB5714]">
-                        <span className="rounded-full border-7 border-red-500"></span>
+                        <span className="rounded-full border-8 border-red-500"></span>
                         Proses
                       </button>
                     )}

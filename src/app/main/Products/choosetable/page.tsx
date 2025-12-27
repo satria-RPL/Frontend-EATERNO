@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import TableCard from "@/components/cards/TableCard";
-import { TablesService } from "@/services/tables.service";
+import { TablesService } from "@/lib/services/tables.service";
 
 type TableUI = {
   id: number;

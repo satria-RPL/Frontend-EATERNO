@@ -64,7 +64,7 @@ export default function SidebarRight() {
   };
 
   useEffect(() => {
-  fetch("http://localhost:3000/api/coupons?placeId=1")
+  fetch("http://localhost:3000/api/promotions")
     .then((res) => res.json())
     .then((data) => setCoupons(data))
     .catch((err) => console.error("Failed load coupons", err));

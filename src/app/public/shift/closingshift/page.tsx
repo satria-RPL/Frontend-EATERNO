@@ -21,7 +21,7 @@ export default function ClosingShiftPage() {
 
   return (
     <div className="flex flex-col justify-center py-10">
-      <div className="flex flex-col justify-between w-full gap-20 px-50">
+      <div className="flex flex-col justify-between w-full gap-20 px-48">
         <h2 className="text-4xl font-medium text-center mb-4">Closing Shift</h2>
 
         <label className="flex justify-start text-center mb-2 font-medium text-3xl">

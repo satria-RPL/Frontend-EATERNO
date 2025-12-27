@@ -48,7 +48,7 @@ export default function BestSeller() {
             </div>
 
             {/* Right: Sold */}
-            <span className="text-lg font-[Outfit] font-semibold">
+            <span className="text-lg font-[Poppins] font-semibold">
               {item.sold}
             </span>
           </div>

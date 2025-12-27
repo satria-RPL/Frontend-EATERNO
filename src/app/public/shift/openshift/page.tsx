@@ -1,16 +1,33 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import ShiftModal from "@/components/modals/ShiftModal";
+import {
+  createShiftOptionsLoader,
+  type ShiftOption,
+  type StationOption,
+} from "@/domain/shift/shiftOptions";
+import { fetchCashierShifts, fetchStations } from "@/lib/services/shiftService";
+
+const { loadShiftOptions, loadStationOptions } = createShiftOptionsLoader({
+  fetchCashierShifts,
+  fetchStations,
+});
 
 export default function OpenShiftPage() {
   const [shift, setShift] = useState("");
   const [station, setStation] = useState("");
   const [amount, setAmount] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [shiftOptions, setShiftOptions] = useState<ShiftOption[]>([]);
+  const [shiftLoading, setShiftLoading] = useState(true);
+  const [shiftError, setShiftError] = useState<string | null>(null);
+  const [stationOptions, setStationOptions] = useState<StationOption[]>([]);
+  const [stationLoading, setStationLoading] = useState(true);
+  const [stationError, setStationError] = useState<string | null>(null);
   const [isRouting, startRouting] = useTransition();
 
   const router = useRouter();
@@ -28,8 +45,78 @@ export default function OpenShiftPage() {
     startRouting(() => router.push("/main/dashboard"));
   };
 
+  useEffect(() => {
+    let isActive = true;
+
+    const loadShifts = async () => {
+      setShiftLoading(true);
+      setShiftError(null);
+
+      try {
+        const result = await loadShiftOptions();
+        if (!isActive) return;
+
+        setShiftOptions(result.options);
+        setShift((current) =>
+          result.options.some((option) => option.value === current)
+            ? current
+            : ""
+        );
+        setShiftError(result.error);
+      } catch {
+        if (!isActive) return;
+        setShiftOptions([]);
+        setShift("");
+        setShiftError("Gagal mengambil data shift");
+      } finally {
+        if (isActive) setShiftLoading(false);
+      }
+    };
+
+    loadShifts();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadStations = async () => {
+      setStationLoading(true);
+      setStationError(null);
+
+      try {
+        const result = await loadStationOptions();
+        if (!isActive) return;
+
+        setStationOptions(result.options);
+        setStation((current) =>
+          result.options.some((option) => option.value === current)
+            ? current
+            : ""
+        );
+        setStationError(result.error);
+      } catch {
+        if (!isActive) return;
+        setStationOptions([]);
+        setStation("");
+        setStationError("Gagal mengambil data station");
+      } finally {
+        if (isActive) setStationLoading(false);
+      }
+    };
+
+    loadStations();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   return (
-    <div className="w-full mx-auto pt-10 gap-10 flex flex-col px-50">
+    <div className="w-full mx-auto pt-10 gap-10 flex flex-col px-48">
       {/* Shift */}
       <div className="mb-6">
         <label className="block mb-5 text-xl font-medium">Shift</label>
@@ -37,15 +124,28 @@ export default function OpenShiftPage() {
           <select
             value={shift}
             onChange={(e) => setShift(e.target.value)}
+            disabled={shiftLoading || shiftOptions.length === 0}
             className="w-full border rounded-lg px-4 py-3 appearance-none text-gray-700"
           >
-            <option value="">Pilih Shift</option>
-            <option value="pagi">Shift Pagi</option>
-            <option value="siang">Shift Siang</option>
-            <option value="malam">Shift Malam</option>
+            <option value="" disabled hidden>
+              {shiftLoading ? "Memuat shift..." : "Pilih Shift"}
+            </option>
+            {!shiftLoading && shiftOptions.length === 0 && (
+              <option value="" disabled>
+                Shift tidak tersedia
+              </option>
+            )}
+            {shiftOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
         </div>
+        {shiftError && (
+          <p className="mt-2 text-sm text-red-500">{shiftError}</p>
+        )}
       </div>
 
       {/* Station */}
@@ -55,15 +155,28 @@ export default function OpenShiftPage() {
           <select
             value={station}
             onChange={(e) => setStation(e.target.value)}
+            disabled={stationLoading || stationOptions.length === 0}
             className="w-full border rounded-lg px-4 py-3 appearance-none text-gray-700"
           >
-            <option value="">Pilih Station</option>
-            <option value="kasir1">Kasir 1</option>
-            <option value="kasir2">Kasir 2</option>
-            <option value="drive">Drive Thru</option>
+            <option value="" disabled hidden>
+              {stationLoading ? "Memuat station..." : "Pilih Station"}
+            </option>
+            {!stationLoading && stationOptions.length === 0 && (
+              <option value="" disabled>
+                Station tidak tersedia
+              </option>
+            )}
+            {stationOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
         </div>
+        {stationError && (
+          <p className="mt-2 text-sm text-red-500">{stationError}</p>
+        )}
       </div>
 
       {/* Total Uang Pembuka */}

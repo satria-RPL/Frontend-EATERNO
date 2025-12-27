@@ -1,9 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { loginUser } from "@/domain/auth/loginUser";
+import { createLoginUser } from "@/domain/auth/loginUser";
 import { clearSessionCookie, setSessionCookie } from "@/lib/session/authSession";
-import { apiRequest } from "@/lib/api";
+import { loginService } from "@/lib/services/authService";
+
+const loginUser = createLoginUser(loginService);
 
 export type LoginFormState = {
   error?: string;

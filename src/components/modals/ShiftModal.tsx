@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 type ShiftModalProps = {
   open: boolean;
   amount: number;
