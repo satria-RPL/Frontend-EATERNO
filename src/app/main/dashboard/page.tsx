@@ -4,6 +4,7 @@ import DaySelling from "@/components/sections/DaySelling";
 import TotalBalance from "@/components/sections/TotalBalance";
 import BestSeller from "@/components/sections/BestSeller";
 import { getSessionUser } from "@/lib/session/authSession";
+import Motivation from "@/components/sections/Motivation";
 
 export default async function DashboardPage() {
   const sessionUser = await getSessionUser();
@@ -14,14 +15,15 @@ export default async function DashboardPage() {
 
       {/* WRAPPER */}
       <div className="flex flex-col gap-y-6">
-
         {/* ================= ROW 1 ================= */}
         <div className="w-full flex justify-between gap-6">
           <div className="flex-1">
             <ShiftStats userName={sessionUser.name} />
           </div>
 
-          <div className="flex-1 bg-[#F8F8FA] rounded-xl shadow" />
+          <div className="flex-1 bg-[#F8F8FA] rounded-xl shadow">
+            <Motivation userName={sessionUser.name} />
+          </div>
         </div>
 
         {/* ================= ROW 2 ================= */}
@@ -45,7 +47,6 @@ export default async function DashboardPage() {
             <BestSeller />
           </div>
         </div>
-
       </div>
     </div>
   );
