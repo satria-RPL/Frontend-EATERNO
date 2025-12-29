@@ -6,6 +6,8 @@ export type CartAddon = {
   name: string;
   price: number;
   qty: number;
+  variantId?: string;
+  menuVariantItemId?: string;
 };
 
 export type CartItem = {
@@ -34,8 +36,21 @@ type CartState = {
 function serializeAddons(addons: CartAddon[]) {
   return addons
     .slice()
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .map((a) => `${a.id}:${a.qty}`)
+    .sort((a, b) => {
+      const aKey = a.variantId
+        ? `${a.variantId}:${a.menuVariantItemId ?? a.id}`
+        : a.menuVariantItemId ?? a.id;
+      const bKey = b.variantId
+        ? `${b.variantId}:${b.menuVariantItemId ?? b.id}`
+        : b.menuVariantItemId ?? b.id;
+      return aKey.localeCompare(bKey);
+    })
+    .map((a) => {
+      const key = a.variantId
+        ? `${a.variantId}:${a.menuVariantItemId ?? a.id}`
+        : a.menuVariantItemId ?? a.id;
+      return `${key}:${a.qty}`;
+    })
     .join("|");
 }
 

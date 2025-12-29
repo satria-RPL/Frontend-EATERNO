@@ -10,7 +10,7 @@ export default function ShiftStats({
   return (
     <Card>
       <h2 className="text-lg font-semibold mb-4">
-        👋 Hai, {userName} — Statistik Shift Anda
+        👋 Hai, {userName} - Statistik Shift Anda
       </h2>
       <div className="mt-1 space-y-1 font-medium p-3 text-white">
         <StatItem label="Jam Check-in" value={shiftData.checkIn} />

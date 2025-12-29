@@ -17,3 +17,4 @@ export default async function ProductList() {
 
   return <ProductsListClient products={products} categories={categories} />;
 }
+ 
