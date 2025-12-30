@@ -64,6 +64,12 @@ export async function loginService(username: string, password: string) {
     const userObj =
       user && typeof user === "object" ? (user as Record<string, unknown>) : null;
 
+    const rawUserId =
+      (userObj?.["id"] ??
+        userObj?.["userId"] ??
+        userObj?.["cashierId"]) ?? null;
+    const userId = toOptionalString(rawUserId);
+
     const rawRole =
       (userObj?.["role"] ??
         userObj?.["roleName"] ??
@@ -101,8 +107,10 @@ export async function loginService(username: string, password: string) {
         data.refresh_token ??
         data.data?.refreshToken ??
         data.data?.refresh_token,
+      userId,
       user: user
         ? {
+            id: userId,
             name,
             username: resolvedUsername,
             role,

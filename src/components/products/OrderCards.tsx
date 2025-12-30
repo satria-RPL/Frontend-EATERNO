@@ -48,7 +48,7 @@ export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
         return (
           <div
             key={order.id}
-            className="min-w-[282px] max-w-[282px] h-[127px] rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col"
+            className="min-w-72 h-32 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col"
           >
             <div className="flex items-center justify-between gap-2 px-4 py-2 min-w-0">
               <p className="font-semibold text-sm text-gray-800 truncate">
@@ -87,16 +87,15 @@ export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
                 ) : null}
               </div>
 
-              <div className="mt-auto flex items-center justify-between pt-1">
+              <div className="flex items-center justify-between">
                 <span className="text-[10px] text-gray-400">
                   {order.timeAgo}
                 </span>
-                <button
-                  type="button"
-                  className={`h-6 rounded-full px-4 text-[11px] font-semibold text-white transition ${buttonClass}`}
+                <span
+                  className={`h-6 rounded-full px-4 text-[11px] font-semibold text-white flex items-center ${buttonClass}`}
                 >
                   Proses
-                </button>
+                </span>
               </div>
             </div>
           </div>

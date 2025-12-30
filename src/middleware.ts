@@ -1,16 +1,34 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-function hasValidToken(request: NextRequest) {
-  const raw = request.cookies.get("auth_token")?.value ?? null;
-  if (!raw) return false;
+const AUTH_COOKIE = "auth_token";
+
+function parseAuthToken(raw: string | null): string | null {
+  if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as { token?: string } | string;
-    if (typeof parsed === "string") return parsed.trim().length > 0;
-    return !!parsed.token;
+    const parsed = JSON.parse(raw) as { token?: unknown } | string;
+    if (typeof parsed === "string") {
+      const trimmed = parsed.trim();
+      return trimmed ? trimmed : null;
+    }
+    if (parsed && typeof parsed === "object") {
+      const token = (parsed as { token?: unknown }).token;
+      if (typeof token === "string") {
+        const trimmed = token.trim();
+        return trimmed ? trimmed : null;
+      }
+      return null;
+    }
+    return null;
   } catch {
-    return raw.trim().length > 0;
+    const trimmed = raw.trim();
+    return trimmed ? trimmed : null;
   }
+}
+
+function hasValidToken(request: NextRequest) {
+  const raw = request.cookies.get(AUTH_COOKIE)?.value ?? null;
+  return parseAuthToken(raw) !== null;
 }
 
 export function middleware(request: NextRequest) {

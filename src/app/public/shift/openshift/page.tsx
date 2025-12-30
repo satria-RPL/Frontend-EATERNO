@@ -10,12 +10,19 @@ import {
   type ShiftOption,
   type StationOption,
 } from "@/domain/shift/shiftOptions";
-import { fetchCashierShifts, fetchStations } from "@/lib/services/shiftService";
+import { createOpenShiftAction } from "@/domain/shift/openShift";
+import {
+  createCashierShift,
+  fetchShifts,
+  fetchStations,
+} from "@/lib/services/shiftService";
 
 const { loadShiftOptions, loadStationOptions } = createShiftOptionsLoader({
-  fetchCashierShifts,
+  fetchShifts,
   fetchStations,
 });
+
+const { openShift } = createOpenShiftAction({ createCashierShift });
 
 export default function OpenShiftPage() {
   const [shift, setShift] = useState("");
@@ -28,6 +35,8 @@ export default function OpenShiftPage() {
   const [stationOptions, setStationOptions] = useState<StationOption[]>([]);
   const [stationLoading, setStationLoading] = useState(true);
   const [stationError, setStationError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRouting, startRouting] = useTransition();
 
   const router = useRouter();
@@ -42,7 +51,35 @@ export default function OpenShiftPage() {
   };
 
   const handleModalContinue = () => {
-    startRouting(() => router.push("/main/dashboard"));
+    if (!isFormValid) return;
+
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    const selectedShift = shiftOptions.find((option) => option.value === shift);
+    const selectedStation = stationOptions.find(
+      (option) => option.value === station
+    );
+    const placeId = selectedShift?.placeId ?? selectedStation?.placeId ?? "";
+
+    openShift({
+      shiftId: shift,
+      stationId: station,
+      placeId,
+      openingBalance: amountNumber,
+    })
+      .then((result) => {
+        if (!result.ok) {
+          throw new Error(result.error || "Gagal membuka shift.");
+        }
+        startRouting(() => router.push("/main/dashboard"));
+      })
+      .catch((err) => {
+        setSubmitError(
+          err instanceof Error ? err.message : "Gagal membuka shift."
+        );
+        setIsSubmitting(false);
+      });
   };
 
   useEffect(() => {
@@ -208,13 +245,16 @@ export default function OpenShiftPage() {
       >
         Continue
       </button>
+      {submitError && (
+        <p className="mt-3 text-sm text-red-500">{submitError}</p>
+      )}
 
       <ShiftModal
         open={showModal}
         amount={isAmountValid ? amountNumber : 0}
         onCancel={() => setShowModal(false)}
         onContinue={handleModalContinue}
-        pending={isRouting}
+        pending={isRouting || isSubmitting}
         title="Start Shift?"
         description="Dengan Total Pembukaan"
       />

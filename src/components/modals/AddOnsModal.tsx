@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useCartStore } from "@/data/cart";
 import {
+  createAddOnsOptionsLoader,
+  type VariantGroup,
+  type VariantItem,
+} from "@/domain/products/addonsOptions";
+import {
   fetchMenuVariantItems,
   fetchMenuVariants,
 } from "@/lib/services/menuVariantService";
@@ -19,65 +24,6 @@ type AddOnsModalProps = {
   } | null;
 };
 
-type MenuVariantApiItem = {
-  id?: number | string;
-  menuId?: number | string;
-  menu_id?: number | string;
-  name?: string;
-};
-
-type MenuVariantItemApiItem = {
-  id?: number | string;
-  menuVariantId?: number | string;
-  menu_variant_id?: number | string;
-  name?: string;
-  additionalPrice?: number | string;
-  additional_price?: number | string;
-  price?: number | string;
-};
-
-type VariantItem = {
-  id: string;
-  variantId: string;
-  name: string;
-  price: number;
-};
-
-type VariantGroup = {
-  id: string;
-  name: string;
-  items: VariantItem[];
-};
-
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function unwrapArray<T>(payload: unknown): T[] {
-  if (Array.isArray(payload)) return payload as T[];
-  if (!payload || typeof payload !== "object") return [];
-
-  const record = payload as Record<string, unknown>;
-  const candidates = [record.data, record.items, record.results, record.rows];
-
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate)) return candidate as T[];
-    if (candidate && typeof candidate === "object") {
-      const nested = candidate as Record<string, unknown>;
-      if (Array.isArray(nested.data)) return nested.data as T[];
-    }
-  }
-
-  return [];
-}
-
 export default function AddOnsModal({
   open,
   onClose,
@@ -89,6 +35,15 @@ export default function AddOnsModal({
   >({});
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const { loadAddOnsOptions } = useMemo(
+    () =>
+      createAddOnsOptionsLoader({
+        fetchMenuVariants,
+        fetchMenuVariantItems,
+      }),
+    []
+  );
 
   useEffect(() => {
     setSelectedAddonsMap({});
@@ -106,73 +61,17 @@ export default function AddOnsModal({
       setIsLoading(true);
       setLoadError(null);
 
-      const [variantsRes, itemsRes] = await Promise.all([
-        fetchMenuVariants(),
-        fetchMenuVariantItems(),
-      ]);
-
+      const result = await loadAddOnsOptions(product.id);
       if (cancelled) return;
 
-      if (!variantsRes.ok || !itemsRes.ok) {
+      if (result.error) {
         setVariantGroups([]);
-        setLoadError("Gagal memuat varian.");
+        setLoadError(result.error);
         setIsLoading(false);
         return;
       }
 
-      const variantsRaw = unwrapArray<MenuVariantApiItem>(variantsRes.data);
-      const itemsRaw = unwrapArray<MenuVariantItemApiItem>(itemsRes.data);
-
-      const normalizedVariants = variantsRaw
-        .map((variant) => {
-          const id = toNumber(variant.id);
-          const menuId = toNumber(variant.menuId ?? variant.menu_id);
-          const name =
-            typeof variant.name === "string" ? variant.name.trim() : "";
-          if (id == null || menuId == null || !name) return null;
-          return { id: String(id), menuId, name };
-        })
-        .filter(
-          (variant): variant is { id: string; menuId: number; name: string } =>
-            Boolean(variant)
-        )
-        .filter((variant) => variant.menuId === product.id);
-
-      const normalizedItems = itemsRaw
-        .map((item) => {
-          const id = toNumber(item.id);
-          const variantId = toNumber(
-            item.menuVariantId ?? item.menu_variant_id
-          );
-          const name = typeof item.name === "string" ? item.name.trim() : "";
-          if (id == null || variantId == null || !name) return null;
-          const price =
-            toNumber(
-              item.additionalPrice ?? item.additional_price ?? item.price
-            ) ?? 0;
-          return { id: String(id), variantId: String(variantId), name, price };
-        })
-        .filter((item): item is VariantItem => Boolean(item));
-
-      const itemsByVariant = new Map<string, VariantItem[]>();
-      normalizedItems.forEach((item) => {
-        const list = itemsByVariant.get(item.variantId);
-        if (list) {
-          list.push(item);
-        } else {
-          itemsByVariant.set(item.variantId, [item]);
-        }
-      });
-
-      const groups = normalizedVariants
-        .map((variant) => ({
-          id: variant.id,
-          name: variant.name,
-          items: itemsByVariant.get(variant.id) ?? [],
-        }))
-        .filter((group) => group.items.length > 0);
-
-      setVariantGroups(groups);
+      setVariantGroups(result.groups);
       setIsLoading(false);
     };
 
@@ -181,7 +80,7 @@ export default function AddOnsModal({
     return () => {
       cancelled = true;
     };
-  }, [product, open]);
+  }, [product, open, loadAddOnsOptions]);
 
   const itemsById = useMemo(() => {
     const map = new Map<string, VariantItem>();

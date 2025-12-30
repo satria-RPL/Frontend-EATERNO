@@ -27,6 +27,7 @@ export async function handleLogin(
   const user = result.user;
   await setSessionCookie(
     JSON.stringify({
+      userId: result.userId ?? user?.id ?? null,
       name: user.name ?? user.username ?? "",
       role: user.role ?? "",
       username: user.username ?? "",

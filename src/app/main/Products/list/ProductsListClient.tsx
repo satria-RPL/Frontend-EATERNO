@@ -1,13 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import useHorizontalScroll from "@/lib/hooks/useHorizontalScroll";
-import { FILTERS, ORDERS, type OrderFilter } from "@/data/orders";
+import { FILTERS, type OrderFilter, type OrderSummary } from "@/data/orders";
 import type {
   ProductCategory,
   ProductItem,
 } from "@/domain/products/productsList";
+import { createKitchenOrdersLoader } from "@/domain/kitchenOrders";
+import { fetchKitchenOrders } from "@/lib/services/kitchenOrderService";
 
 import AddOnsModal from "@/components/modals/AddOnsModal";
 import { ProductsHeader } from "@/components/products/ProductsHeader";
@@ -26,15 +28,44 @@ export default function ProductsListClient({
 }: ProductsListClientProps) {
   const [activeFilter, setActiveFilter] = useState<OrderFilter>("all");
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [isAddOnsOpen, setIsAddOnsOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(
     null
   );
 
+  const { loadKitchenOrders } = useMemo(
+    () => createKitchenOrdersLoader({ fetchKitchenOrders }),
+    []
+  );
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadOrders = async () => {
+      const result = await loadKitchenOrders();
+      if (!isActive) return;
+
+      if (result.error) {
+        console.error("Failed to load kitchen orders", result.error);
+        setOrders([]);
+        return;
+      }
+
+      setOrders(result.orders);
+    };
+
+    loadOrders();
+
+    return () => {
+      isActive = false;
+    };
+  }, [loadKitchenOrders]);
+
   const filteredOrders =
     activeFilter === "all"
-      ? ORDERS
-      : ORDERS.filter((order) => order.type === activeFilter);
+      ? orders
+      : orders.filter((order) => order.type === activeFilter);
 
   const filteredProducts =
     activeCategory === "all"
@@ -55,7 +86,7 @@ export default function ProductsListClient({
         <ProductsHeader
           activeFilter={activeFilter}
           filters={FILTERS}
-          orders={ORDERS}
+          orders={orders}
           onChangeFilter={(value) => setActiveFilter(value)}
         />
 
