@@ -1,10 +1,10 @@
-import OrderTable from "@/components/sections/HistoryOrderTable";
+import OrderHistoryView from "@/components/sections/OrderHistoryView";
+import { getSessionUser } from "@/lib/session/authSession";
 
-export default function OrderHistoryPage() {
+export default async function OrderHistoryPage() {
+  const sessionUser = await getSessionUser();
+
   return (
-    <div className="p-2 P-py-3 space-y-6 min-h-screen">
-      <h1 className="text-2xl font-bold">Order History</h1>
-      <OrderTable />
-    </div>
+    <OrderHistoryView authName={sessionUser.name} authRole={sessionUser.role} />
   );
 }

@@ -8,9 +8,18 @@ interface VoidModalProps {
   onClose: () => void;
   onConfirm: (reason: string, pin: string) => void;
   order: Order | null;
+  authName?: string;
+  authRole?: string;
 }
 
-export default function VoidModal({ open, onClose, onConfirm, order }: VoidModalProps) {
+export default function VoidModal({
+  open,
+  onClose,
+  onConfirm,
+  order,
+  authName,
+  authRole,
+}: VoidModalProps) {
   const [reason, setReason] = useState("");
   const [customReason, setCustomReason] = useState("");
   const [pin, setPin] = useState("");
@@ -33,39 +42,39 @@ export default function VoidModal({ open, onClose, onConfirm, order }: VoidModal
   const reasons = ["Batal Pesan", "Salah Input", "Lainnya"];
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex justify-center items-center p-4 z-50">
-      <div className="bg-white rounded-xl w-full max-w-lg shadow-xl p-6 relative">
-        {/* Header */}
-        <div className="flex justify-between items-center border-b pb-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between border-b pb-3">
           <h2 className="text-lg font-semibold">
             Void Transaksi {order.id ? `#${order.id}` : ""}
           </h2>
-          <button className="text-red-500 text-xl" onClick={onClose}>✕</button>
+          <button className="text-xl text-red-500" onClick={onClose} type="button">
+            ×
+          </button>
         </div>
 
-        {/* Total */}
         <div className="mt-4">
           <p className="text-sm text-gray-600">Total Tagihan</p>
-          <p className="text-orange-600 font-semibold text-lg">
+          <p className="text-lg font-semibold text-orange-600">
             Rp {order.price?.toLocaleString("id-ID")}
           </p>
         </div>
 
-        {/* Alasan Void */}
         <div className="mt-6">
           <p className="text-sm font-medium">
             Alasan Void <span className="text-red-500">*</span>
           </p>
-          <div className="flex gap-3 mt-2">
+          <div className="mt-2 flex gap-3">
             {reasons.map((r) => (
               <button
                 key={r}
-                className={`px-4 py-2 rounded-md border text-sm transition-all ${
+                className={`rounded-md border px-4 py-2 text-sm transition-all ${
                   reason === r
-                    ? "bg-orange-500 text-white border-orange-500"
+                    ? "border-orange-500 bg-orange-500 text-white"
                     : "border-orange-400 text-black hover:bg-orange-100"
                 }`}
                 onClick={() => setReason(r)}
+                type="button"
               >
                 {r}
               </button>
@@ -74,7 +83,7 @@ export default function VoidModal({ open, onClose, onConfirm, order }: VoidModal
 
           {reason === "Lainnya" && (
             <input
-              className="w-full mt-3 border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-2 focus:border-orange-400"
+              className="mt-3 w-full rounded-md border px-3 py-2 text-sm focus:border-2 focus:border-orange-400 focus:outline-none"
               placeholder="Tulis alasan lain..."
               value={customReason}
               onChange={(e) => setCustomReason(e.target.value)}
@@ -82,36 +91,35 @@ export default function VoidModal({ open, onClose, onConfirm, order }: VoidModal
           )}
         </div>
 
-        {/* Otorisasi */}
         <div className="mt-6">
           <p className="text-sm font-medium">
             Otorisasi <span className="text-red-500">*</span>
           </p>
-          <span className="inline-block border border-orange-400 text-orange-500 rounded-md px-4 py-2 text-sm mt-2">
-            {order.name}
+          <span className="mt-2 inline-block rounded-md border border-orange-400 px-4 py-2 text-sm text-orange-500">
+            {authName || "Unknown"}
           </span>
+          {authRole && <p className="mt-1 text-xs text-gray-500">{authRole}</p>}
         </div>
 
-        {/* PIN */}
         <div className="mt-6">
           <p className="text-sm font-medium">
             PIN <span className="text-red-500">*</span>
           </p>
           <input
             type="password"
-            className="w-full mt-2 border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-2 focus:border-orange-400"
+            className="mt-2 w-full rounded-md border px-3 py-2 text-sm focus:border-2 focus:border-orange-400 focus:outline-none"
             placeholder="Masukkan PIN"
             value={pin}
             onChange={(e) => setPin(e.target.value)}
           />
         </div>
 
-        {/* Submit */}
         <div className="mt-8">
           <button
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2.5 rounded-md text-sm font-medium transition-all"
+            className="w-full rounded-md bg-orange-500 py-2.5 text-sm font-medium text-white transition-all hover:bg-orange-600"
             onClick={handleSubmit}
             disabled={!reason || (reason === "Lainnya" && !customReason) || !pin}
+            type="button"
           >
             Void
           </button>

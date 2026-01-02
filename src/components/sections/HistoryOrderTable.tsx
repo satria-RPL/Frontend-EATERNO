@@ -1,22 +1,37 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Eye, Trash2 } from "lucide-react";
 import { fetchOrders } from "@/lib/orderService";
 import { Order } from "@/types/order";
 import Pagination from "@/components/ui/Pagination";
 import VoidModal from "@/components/modals/VoidTransaksi";
-import { Trash2 } from "lucide-react";
+import OrderDetailModal from "@/components/modals/OrderDetailModal";
 
-export default function OrderTable() {
+type OrderTableProps = {
+  authName?: string;
+  authRole?: string;
+  activeFilter: "all" | "proses" | "selesai" | "cancel";
+  activeSort: "newest" | "oldest";
+};
+
+export default function OrderTable({
+  authName,
+  authRole,
+  activeFilter,
+  activeSort,
+}: OrderTableProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [page, setPage] = useState(1);
-  const perPage = 10;
+  const [perPage, setPerPage] = useState(10);
+  const searchParams = useSearchParams();
+  const searchTerm = searchParams.get("search") ?? "";
 
-  // === VOID MODAL STATE ===
   const [voidModal, setVoidModal] = useState(false);
+  const [detailModal, setDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  // FETCH DATA
   const loadOrders = async () => {
     const data = await fetchOrders();
     setOrders(data);
@@ -26,29 +41,65 @@ export default function OrderTable() {
     loadOrders();
   }, []);
 
-  // PAGINATION
+  const searched = useMemo(() => {
+    const normalized = searchTerm.trim().toLowerCase();
+    if (!normalized) return orders;
+    return orders.filter((order) => {
+      const text = [
+        order.id,
+        order.name,
+        order.payment,
+        order.status,
+        order.date,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return text.includes(normalized);
+    });
+  }, [orders, searchTerm]);
+
+  const filtered = useMemo(() => {
+    if (activeFilter === "all") return searched;
+    return searched.filter((order) => order.status === activeFilter);
+  }, [searched, activeFilter]);
+
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const aTime = new Date(a.date).getTime();
+      const bTime = new Date(b.date).getTime();
+      return activeSort === "newest" ? bTime - aTime : aTime - bTime;
+    });
+  }, [filtered, activeSort]);
+
   const paged = useMemo(() => {
     const start = (page - 1) * perPage;
-    return orders.slice(start, start + perPage);
-  }, [orders, page]);
+    return sorted.slice(start, start + perPage);
+  }, [sorted, page, perPage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, activeFilter, activeSort, perPage]);
 
   const formatPrice = (num: number) =>
     num.toLocaleString("id-ID", { minimumFractionDigits: 2 });
 
-  // OPEN VOID MODAL
   const handleOpenVoid = (order: Order) => {
     setSelectedOrder(order);
     setVoidModal(true);
   };
 
-  // HANDLE VOID CONFIRM
-  const handleConfirmVoid = async (reason: string) => {
+  const handleOpenDetail = (order: Order) => {
+    setSelectedOrder(order);
+    setDetailModal(true);
+  };
+
+  const handleConfirmVoid = async (reason: string, pin: string) => {
     if (!selectedOrder) return;
 
     await fetch(`/api/orders/${selectedOrder.id}/void`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason, pin }),
     });
 
     await loadOrders();
@@ -57,105 +108,137 @@ export default function OrderTable() {
   };
 
   return (
-    <div className="">
-      <div className="bg-white">
-        <div className="overflow-x-auto rounded-4xl">
-          <table className="w-full text-sm">
-            <thead className="bg-[#F8F8FA]">
-              <tr className="text-[#999] text-center">
-                <th className="py-3 px-4">#</th>
-                <th className="py-3 px-4">ID Transaction</th>
-                <th className="py-3 px-4">Name</th>
-                <th className="py-3 px-4">Payment</th>
-                <th className="py-3 px-4">Price</th>
-                <th className="py-3 px-4">Items</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Action</th>
+    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-[#e9e4df] bg-white p-4 shadow-sm">
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto rounded-2xl border border-[#e9e4df]">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-[#e9e4df] bg-[#f8f6f4] text-left text-xs text-[#8c8c8c]">
+              <th className="py-3 px-4 text-center">#</th>
+              <th className="py-3 px-4">ID Transaksi</th>
+              <th className="py-3 px-4">Nama Pelanggan</th>
+              <th className="py-3 px-4">Payment</th>
+              <th className="py-3 px-4">Price</th>
+              <th className="py-3 px-4 text-center">Items</th>
+              <th className="py-3 px-4">Date Time</th>
+              <th className="py-3 px-4 text-center">Status</th>
+              <th className="py-3 px-4 text-center">Aksi</th>
+            </tr>
+          </thead>
+
+          <tbody className="text-[#6f6f6f]">
+            {paged.length === 0 && (
+              <tr>
+                <td
+                  colSpan={9}
+                  className="py-6 text-center text-sm text-[#9a9a9a]"
+                >
+                  Data tidak ditemukan.
+                </td>
               </tr>
-            </thead>
+            )}
+            {paged.map((order, index) => (
+              <tr
+                key={order.id}
+                className="border-b border-[#f2e8e0] even:bg-[#fdeee6]"
+              >
+                <td className="px-4 py-3 text-center">
+                  {(page - 1) * perPage + index + 1}
+                </td>
+                <td className="px-4 py-3">{order.id}</td>
+                <td className="px-4 py-3 text-[#3f2f23]">
+                  {order.name}
+                </td>
+                <td className="px-4 py-3">{order.payment}</td>
+                <td className="px-4 py-3 text-[#3f2f23]">
+                  {formatPrice(order.price)}
+                </td>
+                <td className="px-4 py-3 text-center">{order.items}x</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {new Date(order.date).toLocaleDateString("id-ID")}
+                </td>
 
-            <tbody className="text-[#6C6C6C]">
-              {paged.map((o, i) => (
-                <tr key={o.id} className="justify-center text-center">
-                  <td className="px-4">{(page - 1) * perPage + i + 1}</td>
-                  <td className="px-4">{o.id}</td>
-                  <td className="px-4">{o.name}</td>
-                  <td className="px-4">{o.payment}</td>
-                  <td className="px-4">{formatPrice(o.price)}</td>
-                  <td className="px-4">{o.items}x</td>
-                  <td className="px-4">
-                    {new Date(o.date).toLocaleDateString("id-ID")}
-                  </td>
+                <td className="px-4 py-3 text-center">
+                  {order.status === "proses" && (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-[#f97316] bg-white px-3 py-0.5 text-xs font-semibold text-[#f97316]">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#f97316]"></span>
+                      Proses
+                    </span>
+                  )}
 
-                  {/* STATUS BUTTON */}
-                  <td className="py-4 px-6">
-                    {o.status === "proses" && (
-                      <button className="flex items-center gap-2 px-2 py-0.5 rounded-full text-sm font-medium bg-red-100 text-[#EB5714] border border-[#EB5714]">
-                        <span className="rounded-full border-8 border-orange-500"></span>
-                        Proses
-                      </button>
-                    )}
+                  {order.status === "cancel" && (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-[#ef4444] bg-white px-3 py-0.5 text-xs font-semibold text-[#ef4444]">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444]"></span>
+                      Cancel
+                    </span>
+                  )}
 
-                    {o.status === "cancel" && (
-                      <button className="flex items-center gap-2 px-2 py-0.5 rounded-full text-sm font-medium text-red-500 bg-red-100 border border-red-500">
-                        <span className="rounded-full border-7 border-red-500"></span>
-                        Cancel
-                      </button>
-                    )}
+                  {order.status === "selesai" && (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-[#16a34a] bg-white px-3 py-0.5 text-xs font-semibold text-[#16a34a]">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#16a34a]"></span>
+                      Done
+                    </span>
+                  )}
+                </td>
 
-                    {o.status === "selesai" && (
-                      <button className="flex items-center gap-2 px-2 py-0.5 rounded-full text-sm font-medium text-green-600 bg-green-50 border border-green-600">
-                        <span className="rounded-full border-7 border-green-600"></span>
-                        Done
-                      </button>
-                    )}
-                  </td>
-
-                  {/* DELETE ICON */}
-                  <td className="py-4 px-6">
-                    {(o.status === "proses" || o.status === "selesai") && (
-                      <button
-                        className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-100 transition"
-                        title="Void / Delete"
-                        onClick={() =>
-                          o.status === "proses"
-                            ? handleOpenVoid(o) // BUKA MODAL VOID
-                            : setOrders(orders.filter((x) => x.id !== o.id)) // DELETE LANGSUNG
-                        }
-                      >
-                        <Trash2 size={18} className="text-red-500" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                <td className="px-4 py-3 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#ef4444] text-white transition hover:opacity-90"
+                      title="Delete"
+                      type="button"
+                      onClick={() =>
+                        order.status === "proses"
+                          ? handleOpenVoid(order)
+                          : setOrders(orders.filter((x) => x.id !== order.id))
+                      }
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <button
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#22c55e] text-white transition hover:opacity-90"
+                      title="View"
+                      type="button"
+                      onClick={() => handleOpenDetail(order)}
+                    >
+                      <Eye size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* TABLE FOOTER */}
-      <div className="mt-4 flex justify-between text-sm h-[50] items-center">
-        <p className="text-[#6C6C6C]">
-          Data ditampilkan {Math.min(page * perPage, orders.length)} dari{" "}
-          {orders.length}
+      <div className="mt-4 flex items-center justify-between text-sm">
+        <p className="text-[#6f6f6f]">
+          Data ditampilkan {Math.min(page * perPage, filtered.length)} dari{" "}
+          {filtered.length}
         </p>
 
         <Pagination
           page={page}
           setPage={setPage}
-          total={orders.length}
+          total={filtered.length}
           perPage={perPage}
+          setPerPage={setPerPage}
         />
       </div>
 
-      {/* VOID MODAL */}
       <VoidModal
         open={voidModal}
         onClose={() => setVoidModal(false)}
         onConfirm={handleConfirmVoid}
         order={selectedOrder}
+        authName={authName}
+        authRole={authRole}
+      />
+
+      <OrderDetailModal
+        open={detailModal}
+        onClose={() => setDetailModal(false)}
+        order={selectedOrder}
+        cashierName={authName}
       />
     </div>
   );
