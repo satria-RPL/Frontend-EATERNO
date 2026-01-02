@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ReceiptText, CheckCircle2, CircleSlash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Wallet, QrCode, Landmark } from "lucide-react";
+import { getCoupons } from "@/lib/services/couponService";
 
 const paymentOptions = [
   {
@@ -64,12 +65,22 @@ export default function SidebarRight() {
   };
 
   useEffect(() => {
-  fetch("http://localhost:3000/api/promotions")
-    .then((res) => res.json())
-    .then((data) => setCoupons(data))
-    .catch((err) => console.error("Failed load coupons", err));
-}, []);
+    getCoupons()
+      .then(({ promotions, rules }) => {
+        const mappedCoupons = promotions.map((promo) => ({
+          name: promo.name,
+          rules: rules
+            .filter((r) => r.promotionId === promo.id)
+            .map((r) => ({
+              type: r.ruleType as "percentage_discount" | "fixed_discount",
+              value: Number(r.value),
+            })),
+        }));
 
+        setCoupons(mappedCoupons);
+      })
+      .catch((err) => console.error("Failed load coupons", err));
+  }, []);
 
   const cart = useCartStore((s) => s.cart);
   const removeFromCart = useCartStore((s) => s.removeFromCart);
@@ -80,26 +91,26 @@ export default function SidebarRight() {
   const subtotal = getSubtotal();
   const taxPercent = 10;
   const discount = (() => {
-  let totalDiscount = 0;
+    let totalDiscount = 0;
 
-  const activeCoupons = coupons.filter((c) =>
-    selectedCoupons.includes(c.name)
-  );
+    const activeCoupons = coupons.filter((c) =>
+      selectedCoupons.includes(c.name)
+    );
 
-  for (const coupon of activeCoupons) {
-    for (const rule of coupon.rules ?? []) {
-      if (rule.type === "percentage_discount") {
-        totalDiscount += (subtotal * rule.value) / 100;
-      }
+    for (const coupon of activeCoupons) {
+      for (const rule of coupon.rules ?? []) {
+        if (rule.type === "percentage_discount") {
+          totalDiscount += (subtotal * rule.value) / 100;
+        }
 
-      if (rule.type === "fixed_discount") {
-        totalDiscount += rule.value;
+        if (rule.type === "fixed_discount") {
+          totalDiscount += rule.value;
+        }
       }
     }
-  }
 
-  return Math.min(totalDiscount, subtotal);
-})();
+    return Math.min(totalDiscount, subtotal);
+  })();
   const rounding = 0;
   const tax = Math.round((subtotal * taxPercent) / 100);
   const total = getTotal({ taxPercent, discount, rounding });
