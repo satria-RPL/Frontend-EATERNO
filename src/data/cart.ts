@@ -6,6 +6,8 @@ export type CartAddon = {
   name: string;
   price: number;
   qty: number;
+  variantId?: string;
+  menuVariantItemId?: string;
 };
 
 export type CartItem = {
@@ -19,9 +21,14 @@ export type CartItem = {
 type CartState = {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
-  removeFromCart: (productId: number) => void;
-  updateItemQty: (productId: number, qty: number) => void;
-  updateAddonQty: (productId: number, addonId: string, qty: number) => void;
+  removeFromCart: (productId: number, lineKey?: string) => void;
+  updateItemQty: (productId: number, qty: number, lineKey?: string) => void;
+  updateAddonQty: (
+    productId: number,
+    addonId: string,
+    qty: number,
+    lineKey?: string
+  ) => void;
   clearCart: () => void;
   getSubtotal: () => number;
   getTotal: (opts?: {
@@ -34,9 +41,38 @@ type CartState = {
 function serializeAddons(addons: CartAddon[]) {
   return addons
     .slice()
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .map((a) => `${a.id}:${a.qty}`)
+    .sort((a, b) => {
+      const aKey = a.variantId
+        ? `${a.variantId}:${a.menuVariantItemId ?? a.id}`
+        : a.menuVariantItemId ?? a.id;
+      const bKey = b.variantId
+        ? `${b.variantId}:${b.menuVariantItemId ?? b.id}`
+        : b.menuVariantItemId ?? b.id;
+      return aKey.localeCompare(bKey);
+    })
+    .map((a) => {
+      const key = a.variantId
+        ? `${a.variantId}:${a.menuVariantItemId ?? a.id}`
+        : a.menuVariantItemId ?? a.id;
+      return `${key}:${a.qty}`;
+    })
     .join("|");
+}
+
+export function getCartLineKey(
+  item: Pick<CartItem, "productId" | "addons">
+) {
+  return `${item.productId}:${serializeAddons(item.addons ?? [])}`;
+}
+
+function isSameLine(
+  item: CartItem,
+  productId: number,
+  lineKey?: string
+) {
+  if (item.productId !== productId) return false;
+  if (!lineKey) return true;
+  return getCartLineKey(item) === lineKey;
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
@@ -62,28 +98,49 @@ export const useCartStore = create<CartState>((set, get) => ({
       return { cart: [...state.cart, { ...item, qty: item.qty || 1 }] };
     }),
 
-  removeFromCart: (productId) =>
-    set((state) => ({
-      cart: state.cart.filter((c) => c.productId !== productId),
-    })),
+  removeFromCart: (productId, lineKey) =>
+    set((state) => {
+      if (!lineKey) {
+        const index = state.cart.findIndex(
+          (item) => item.productId === productId
+        );
+        if (index < 0) return { cart: state.cart };
+        const next = state.cart.slice();
+        next.splice(index, 1);
+        return { cart: next };
+      }
 
-  updateItemQty: (productId, qty) =>
-    set((state) => ({
-      cart: state.cart.map((c) =>
-        c.productId === productId ? { ...c, qty } : c
-      ),
-    })),
+      return {
+        cart: state.cart.filter(
+          (item) => !isSameLine(item, productId, lineKey)
+        ),
+      };
+    }),
 
-  updateAddonQty: (productId, addonId, qty) =>
-    set((state) => ({
-      cart: state.cart.map((c) => {
-        if (c.productId !== productId) return c;
-        const newAddons = c.addons
-          .map((a) => (a.id === addonId ? { ...a, qty } : a))
-          .filter((a) => a.qty > 0);
-        return { ...c, addons: newAddons };
-      }),
-    })),
+  updateItemQty: (productId, qty, lineKey) =>
+    set((state) => {
+      let updated = false;
+      const next = state.cart.map((item) => {
+        if (updated || !isSameLine(item, productId, lineKey)) return item;
+        updated = true;
+        return { ...item, qty };
+      });
+      return { cart: next };
+    }),
+
+  updateAddonQty: (productId, addonId, qty, lineKey) =>
+    set((state) => {
+      let updated = false;
+      const next = state.cart.map((item) => {
+        if (updated || !isSameLine(item, productId, lineKey)) return item;
+        updated = true;
+        const newAddons = item.addons
+          .map((addon) => (addon.id === addonId ? { ...addon, qty } : addon))
+          .filter((addon) => addon.qty > 0);
+        return { ...item, addons: newAddons };
+      });
+      return { cart: next };
+    }),
 
   clearCart: () => set({ cart: [] }),
 

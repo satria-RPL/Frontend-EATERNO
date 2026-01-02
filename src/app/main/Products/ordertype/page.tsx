@@ -9,7 +9,7 @@ export default function OrderType() {
   const [customerName, setCustomerName] = useState("");
   const router = useRouter();
 
-  const isFormValid = selected !== null;
+  const isFormValid = Boolean(selected) && customerName.trim().length > 0;
 
   const handleContinue = () => {
     if (!isFormValid) return;

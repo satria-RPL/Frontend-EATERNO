@@ -4,7 +4,9 @@ export type LoginResult = {
   token?: string;
   tokenType?: string;
   refreshToken?: string;
+  userId?: number | string;
   user?: {
+    id?: number | string;
     name?: string;
     username?: string;
     role?: string;
@@ -43,6 +45,7 @@ export function createLoginUser(loginService: LoginService) {
       token: result.token,
       tokenType: result.tokenType,
       refreshToken: result.refreshToken,
+      userId: result.userId,
       user: result.user,
     };
   };

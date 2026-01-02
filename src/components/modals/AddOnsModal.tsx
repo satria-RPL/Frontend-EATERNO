@@ -2,8 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { getAddonsForProduct, Addon } from "@/data/addons";
 import { useCartStore } from "@/data/cart";
+import {
+  createAddOnsOptionsLoader,
+  type VariantGroup,
+  type VariantItem,
+} from "@/domain/products/addonsOptions";
+import {
+  fetchMenuVariantItems,
+  fetchMenuVariants,
+} from "@/lib/services/menuVariantService";
 
 type AddOnsModalProps = {
   open: boolean;
@@ -21,36 +29,73 @@ export default function AddOnsModal({
   onClose,
   product,
 }: AddOnsModalProps) {
-  const [addons, setAddons] = useState<Addon[]>([]);
+  const [variantGroups, setVariantGroups] = useState<VariantGroup[]>([]);
   const [selectedAddonsMap, setSelectedAddonsMap] = useState<
     Record<string, number>
   >({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const { loadAddOnsOptions } = useMemo(
+    () =>
+      createAddOnsOptionsLoader({
+        fetchMenuVariants,
+        fetchMenuVariantItems,
+      }),
+    []
+  );
 
   useEffect(() => {
-    if (product) {
-      setAddons(getAddonsForProduct(product.id as any, product.category));
-    } else {
-      setAddons([]);
-    }
     setSelectedAddonsMap({});
-  }, [product, open]);
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, Addon[]>();
-    addons.forEach((a) => {
-      const key = a.category ?? "Other";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(a);
+    if (!open || !product) {
+      setVariantGroups([]);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+
+      const result = await loadAddOnsOptions(product.id);
+      if (cancelled) return;
+
+      if (result.error) {
+        setVariantGroups([]);
+        setLoadError(result.error);
+        setIsLoading(false);
+        return;
+      }
+
+      setVariantGroups(result.groups);
+      setIsLoading(false);
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product, open, loadAddOnsOptions]);
+
+  const itemsById = useMemo(() => {
+    const map = new Map<string, VariantItem>();
+    variantGroups.forEach((group) => {
+      group.items.forEach((item) => map.set(item.id, item));
     });
-    return Array.from(map.entries());
-  }, [addons]);
+    return map;
+  }, [variantGroups]);
 
   const total = useMemo(() => {
     return Object.entries(selectedAddonsMap).reduce((sum, [id, qty]) => {
-      const addon = addons.find((a) => String(a.id) === id);
+      const addon = itemsById.get(id);
       return sum + (addon ? addon.price * qty : 0);
     }, 0);
-  }, [selectedAddonsMap, addons]);
+  }, [selectedAddonsMap, itemsById]);
 
   const increment = (id: string) => {
     setSelectedAddonsMap((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
@@ -73,17 +118,31 @@ export default function AddOnsModal({
   const handleAdd = () => {
     if (!product) return;
 
-    const formattedAddons = Object.entries(selectedAddonsMap).map(
-      ([id, qty]) => {
-        const addon = addons.find((a) => String(a.id) === id)!;
+    const formattedAddons = Object.entries(selectedAddonsMap)
+      .map(([id, qty]) => {
+        const addon = itemsById.get(id);
+        if (!addon) return null;
         return {
-          id: String(addon.id),
+          id: addon.id,
           name: addon.name,
           price: addon.price,
           qty,
+          variantId: addon.variantId,
+          menuVariantItemId: addon.id,
         };
-      }
-    );
+      })
+      .filter(
+        (
+          addon
+        ): addon is {
+          id: string;
+          name: string;
+          price: number;
+          qty: number;
+          variantId: string;
+          menuVariantItemId: string;
+        } => Boolean(addon)
+      );
 
     addToCart({
       productId: product.id,
@@ -117,15 +176,23 @@ export default function AddOnsModal({
 
         {/* Content */}
         <div className="px-6 py-4 overflow-y-auto flex-1 hide-scrollbar">
-          {grouped.length === 0 && (
+          {isLoading && (
+            <div className="text-sm text-gray-500">Loading addons...</div>
+          )}
+
+          {!isLoading && loadError && (
+            <div className="text-sm text-red-500">{loadError}</div>
+          )}
+
+          {!isLoading && !loadError && variantGroups.length === 0 && (
             <div className="text-sm text-gray-500">No addons available.</div>
           )}
 
-          {grouped.map(([category, items]) => (
-            <section key={category} className="mb-6">
-              <h2 className="text-lg font-medium mb-3">{category}</h2>
+          {variantGroups.map((group) => (
+            <section key={group.id} className="mb-6">
+              <h2 className="text-lg font-medium mb-3">{group.name}</h2>
               <div className="space-y-3">
-                {items.map((a) => {
+                {group.items.map((a) => {
                   const idStr = String(a.id);
                   const qty = selectedAddonsMap[idStr] ?? 0;
                   return (

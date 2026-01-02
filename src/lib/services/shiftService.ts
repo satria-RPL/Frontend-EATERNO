@@ -2,10 +2,20 @@ type ApiResult<T = unknown> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number; error: string; data?: unknown };
 
-async function fetchApi<T = unknown>(path: string): Promise<ApiResult<T>> {
+async function fetchApi<T = unknown>(
+  path: string,
+  options: RequestInit = {}
+): Promise<ApiResult<T>> {
   try {
+    const headers = new Headers(options.headers);
+    headers.set("Accept", "application/json");
+    if (options.body && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+
     const res = await fetch(path, {
-      headers: { Accept: "application/json" },
+      ...options,
+      headers,
       credentials: "include",
     });
 
@@ -29,6 +39,22 @@ export async function fetchCashierShifts() {
   return fetchApi("/api/cashier-shifts");
 }
 
+export async function fetchShifts() {
+  return fetchApi("/api/shifts");
+}
+
 export async function fetchStations() {
   return fetchApi("/api/stations");
+}
+
+export async function createCashierShift(payload: {
+  shiftId: number;
+  stationId: number;
+  placeId: number;
+  openingBalance: number;
+}) {
+  return fetchApi("/api/cashier-shifts", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

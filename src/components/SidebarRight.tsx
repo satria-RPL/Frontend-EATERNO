@@ -25,7 +25,7 @@ const paymentOptions = [
   },
 ];
 
-import { useCartStore } from "@/data/cart";
+import { getCartLineKey, useCartStore } from "@/data/cart";
 import Loading from "./ui/Loading";
 
 function formatRp(value: number) {
@@ -88,6 +88,7 @@ export default function SidebarRight() {
   const getTotal = useCartStore((s) => s.getTotal);
 
   const itemsCount = cart.reduce((sum, i) => sum + (i.qty || 0), 0);
+  const isCartEmpty = cart.length === 0;
   const subtotal = getSubtotal();
   const taxPercent = 10;
   const discount = (() => {
@@ -115,8 +116,8 @@ export default function SidebarRight() {
   const tax = Math.round((subtotal * taxPercent) / 100);
   const total = getTotal({ taxPercent, discount, rounding });
 
-  const handleRemove = (productId: number) => {
-    removeFromCart(productId);
+  const handleRemove = (productId: number, lineKey?: string) => {
+    removeFromCart(productId, lineKey);
   };
 
   const router = useRouter();
@@ -183,7 +184,9 @@ export default function SidebarRight() {
                     </div>
 
                     <button
-                      onClick={() => handleRemove(item.productId)}
+                      onClick={() =>
+                        handleRemove(item.productId, getCartLineKey(item))
+                      }
                       className="text-red-500 text-xs"
                       aria-label="remove item"
                     >
@@ -311,29 +314,15 @@ export default function SidebarRight() {
               </div>
             </>
           )}
-
-          {/* KALAU MAU NANTI AKTIFIN PEMBAYARAN CASH
-        <div className="mb-4">
-          <p className="text-xs font-semibold mb-1">Pembayaran Cash</p>
-          <input
-            type="number"
-            className="w-full rounded-lg border px-3 py-2 text-sm mb-1"
-            placeholder="Rp"
-          />
-          <div className="flex justify-between text-xs">
-            <span>Return</span>
-            <span className="text-orange-500 font-semibold">Rp 500.000</span>
-          </div>
-        </div>
-        */}
         </div>
 
         {/* BUTTON PROSES */}
         {!isPaymentsPage && (
           <div className="pt-5">
             <button
-              className="w-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-white transition"
+              className="w-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-white transition disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
               onClick={handleContinue}
+              disabled={isCartEmpty}
             >
               <ReceiptText size={20} className="mr-1" />
               Proses Order

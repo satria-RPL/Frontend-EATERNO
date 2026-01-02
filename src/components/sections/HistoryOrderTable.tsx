@@ -92,7 +92,7 @@ export default function OrderTable() {
                   <td className="py-4 px-6">
                     {o.status === "proses" && (
                       <button className="flex items-center gap-2 px-2 py-0.5 rounded-full text-sm font-medium bg-red-100 text-[#EB5714] border border-[#EB5714]">
-                        <span className="rounded-full border-8 border-red-500"></span>
+                        <span className="rounded-full border-8 border-orange-500"></span>
                         Proses
                       </button>
                     )}

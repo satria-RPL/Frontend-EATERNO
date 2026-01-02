@@ -30,6 +30,7 @@ export function getSessionToken(request: NextRequest) {
 }
 
 export type AuthCookiePayload = {
+  userId?: string | number;
   token?: string;
   tokenType?: string;
   refreshToken?: string;
@@ -59,6 +60,7 @@ function normalizeRole(value: unknown) {
 }
 
 export type SessionUser = {
+  id?: string;
   name: string;
   username: string;
   role: string;
@@ -66,6 +68,7 @@ export type SessionUser = {
 
 export function mapAuthPayloadToUser(payload: AuthCookiePayload | null): SessionUser {
   return {
+    id: payload?.userId ? String(payload.userId) : undefined,
     name: payload?.name ?? payload?.username ?? "",
     username: payload?.username ?? "",
     role: normalizeRole(payload?.role),

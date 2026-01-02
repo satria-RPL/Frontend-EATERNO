@@ -3,11 +3,11 @@ type ApiResult<T = unknown> =
   | { ok: false; status: number; error: string; data?: unknown };
 
 export type ShiftService = {
-  fetchCashierShifts: () => Promise<ApiResult>;
+  fetchShifts: () => Promise<ApiResult>;
   fetchStations: () => Promise<ApiResult>;
 };
 
-type CashierShiftApiItem = {
+type ShiftApiItem = {
   id?: string | number;
   shiftId?: string | number;
   shift_id?: string | number;
@@ -45,11 +45,13 @@ type StationApiItem = {
 export type ShiftOption = {
   value: string;
   label: string;
+  placeId?: string;
 };
 
 export type StationOption = {
   value: string;
   label: string;
+  placeId?: string;
 };
 
 function toStringValue(value: unknown): string {
@@ -97,7 +99,7 @@ function normalizeBoolean(value: unknown): boolean | null {
   return null;
 }
 
-function buildShiftLabel(item: CashierShiftApiItem, fallbackId: string): string {
+function buildShiftLabel(item: ShiftApiItem, fallbackId: string): string {
   const base =
     item.description ??
     item.name ??
@@ -140,14 +142,14 @@ function buildStationLabel(item: StationApiItem, fallbackId: string): string {
 }
 
 export function createShiftOptionsLoader({
-  fetchCashierShifts,
+  fetchShifts,
   fetchStations,
 }: ShiftService) {
   async function loadShiftOptions(): Promise<{
     options: ShiftOption[];
     error: string | null;
   }> {
-    const result = await fetchCashierShifts();
+    const result = await fetchShifts();
     if (!result.ok) {
       return {
         options: [],
@@ -155,29 +157,31 @@ export function createShiftOptionsLoader({
       };
     }
 
-    const items = unwrapArray<CashierShiftApiItem>(result.data);
-    const options = items
-      .map((item) => {
-        const activeValue = normalizeBoolean(item.isActive ?? item.is_active);
-        if (activeValue === false) return null;
+    const items = unwrapArray<ShiftApiItem>(result.data);
+    const options = items.reduce<ShiftOption[]>((acc, item) => {
+      const activeValue = normalizeBoolean(item.isActive ?? item.is_active);
+      if (activeValue === false) return acc;
 
-        const value = toStringValue(
-          item.id ??
-            item.shiftId ??
-            item.shift_id ??
-            item.code ??
-            item.name ??
-            item.label ??
-            item.title
-        ).trim();
+      const value = toStringValue(
+        item.id ??
+          item.shiftId ??
+          item.shift_id ??
+          item.code ??
+          item.name ??
+          item.label ??
+          item.title
+      ).trim();
 
-        if (!value) return null;
-        return {
-          value,
-          label: buildShiftLabel(item, value),
-        };
-      })
-      .filter((item): item is ShiftOption => Boolean(item));
+      if (!value) return acc;
+      const placeId = toStringValue(item.placeId ?? item.place_id).trim();
+
+      acc.push({
+        value,
+        label: buildShiftLabel(item, value),
+        placeId: placeId || undefined,
+      });
+      return acc;
+    }, []);
 
     return { options, error: null };
   }
@@ -195,20 +199,22 @@ export function createShiftOptionsLoader({
     }
 
     const items = unwrapArray<StationApiItem>(result.data);
-    const options = items
-      .map((item) => {
-        const activeValue = normalizeBoolean(item.isActive ?? item.is_active);
-        if (activeValue === false) return null;
+    const options = items.reduce<StationOption[]>((acc, item) => {
+      const activeValue = normalizeBoolean(item.isActive ?? item.is_active);
+      if (activeValue === false) return acc;
 
-        const value = toStringValue(item.id ?? item.name ?? item.label).trim();
-        if (!value) return null;
+      const value = toStringValue(item.id ?? item.name ?? item.label).trim();
+      if (!value) return acc;
 
-        return {
-          value,
-          label: buildStationLabel(item, value),
-        };
-      })
-      .filter((item): item is StationOption => Boolean(item));
+      const placeId = toStringValue(item.placeId ?? item.place_id).trim();
+
+      acc.push({
+        value,
+        label: buildStationLabel(item, value),
+        placeId: placeId || undefined,
+      });
+      return acc;
+    }, []);
 
     return { options, error: null };
   }

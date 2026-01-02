@@ -9,17 +9,84 @@ export type OrderFilter = (typeof FILTERS)[number]["value"];
 
 export type OrderSummary = {
   id: number;
-  type: OrderFilter;
+  type: Exclude<OrderFilter, "all">;
   title: string;
   table: string;
+  customer?: string;
+  itemsCount: number;
+  itemsPreview: string[];
+  itemsMoreCount?: number;
+  timeAgo: string;
 };
 
 export const ORDERS: OrderSummary[] = [
-  { id: 1, type: "waitlist", title: "Order #001", table: "A1" },
-  { id: 2, type: "dinein", title: "Order #002", table: "B3" },
-  { id: 3, type: "takeaway", title: "Order #003", table: "-" },
-  { id: 4, type: "dinein", title: "Order #004", table: "C2" },
-  { id: 5, type: "takeaway", title: "Order #005", table: "D2" },
-  { id: 6, type: "dinein", title: "Order #006", table: "C4" },
-  { id: 7, type: "waitlist", title: "Order #007", table: "D1" },
+  {
+    id: 1,
+    type: "waitlist",
+    title: "Order #001",
+    table: "A1",
+    itemsCount: 5,
+    itemsPreview: ["Nasi Padang 3x", "Es Teh 2x"],
+    itemsMoreCount: 10,
+    timeAgo: "2 menit lalu",
+  },
+  {
+    id: 2,
+    type: "dinein",
+    title: "Order #002",
+    table: "B3",
+    itemsCount: 4,
+    itemsPreview: ["Ayam Bakar 2x", "Es Jeruk 2x"],
+    itemsMoreCount: 6,
+    timeAgo: "5 menit lalu",
+  },
+  {
+    id: 3,
+    type: "takeaway",
+    title: "Order #003",
+    table: "-",
+    customer: "Dirga Hardeka",
+    itemsCount: 5,
+    itemsPreview: ["Nasi Padang 3x", "Es Teh 2x"],
+    itemsMoreCount: 10,
+    timeAgo: "2 menit lalu",
+  },
+  {
+    id: 4,
+    type: "dinein",
+    title: "Order #004",
+    table: "C2",
+    itemsCount: 3,
+    itemsPreview: ["Mie Goreng 1x", "Air Mineral 2x"],
+    timeAgo: "8 menit lalu",
+  },
+  {
+    id: 5,
+    type: "takeaway",
+    title: "Order #005",
+    table: "-",
+    customer: "Nadya",
+    itemsCount: 2,
+    itemsPreview: ["Sate Ayam 2x"],
+    timeAgo: "10 menit lalu",
+  },
+  {
+    id: 6,
+    type: "dinein",
+    title: "Order #006",
+    table: "C4",
+    itemsCount: 6,
+    itemsPreview: ["Rendang 2x", "Es Teh 2x"],
+    itemsMoreCount: 4,
+    timeAgo: "12 menit lalu",
+  },
+  {
+    id: 7,
+    type: "waitlist",
+    title: "Order #007",
+    table: "D1",
+    itemsCount: 1,
+    itemsPreview: ["Kopi Hitam 1x"],
+    timeAgo: "15 menit lalu",
+  },
 ];
