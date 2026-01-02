@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import HistoryOrderSearchBar from "@/components/HistoryOrderSearchBar";
 
 type NavbarProps = {
   userName?: string;
@@ -37,23 +38,26 @@ export default function Navbar({
   }, []);
 
   return (
-    <nav className="fixed top-0 z-50 w-full border-0 bg-white text-gray-200 shadow-sm">
-      <div className="mx-auto flex max-w-full items-center justify-between px-6 py-3">
-        <div className="relative flex h-16 w-full items-center justify-between">
-          <div className="text-lg font-bold text-gray-800">
-            <Image
-              src="/img/brand.png"
-              width={150}
-              height={150}
-              alt="Eaterno brand"
-            />
+    <nav className="fixed top-0 z-50 w-full border-0 bg-[var(--color-bg-primary)] text-[color:var(--color-text-body)] shadow-sm">
+      <div className="mx-auto flex max-w-full items-center justify-between px-8 py-3">
+        <div className="relative flex h-16 w-full items-center justify-between gap-6">
+          <div className="flex items-center gap-8">
+            <div className="text-lg font-bold text-[color:var(--color-text-header)]">
+              <Image
+                src="/img/brand.png"
+                width={150}
+                height={150}
+                alt="Eaterno brand"
+              />
+            </div>
+            <HistoryOrderSearchBar />
           </div>
 
           <div className="flex items-center gap-5">
             <button
               type="button"
               onClick={onNotificationClick}
-              className="relative rounded-full border-2 border-gray-100 bg-white p-3 transition hover:bg-orange-200"
+              className="relative rounded-full border-2 border-[color:var(--color-bg-tertiary)] bg-[var(--color-bg-primary)] p-3 transition hover:bg-[var(--color-primary-200)]"
               aria-label="Notifikasi"
             >
               <NotificationIcon />
@@ -68,9 +72,11 @@ export default function Navbar({
             />
 
             <div className="text-left">
-              <div className="font-bold text-black">{userName}</div>
-              <div className="text-sm text-gray-700">
-                {role} · {timeLabel}
+              <div className="font-bold text-[color:var(--color-text-header)]">
+                {userName}
+              </div>
+              <div className="text-sm text-[color:var(--color-text-body)]">
+                {role} at {timeLabel}
               </div>
             </div>
           </div>
