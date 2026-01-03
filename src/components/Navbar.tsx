@@ -11,18 +11,15 @@ type NavbarProps = {
   onNotificationClick?: () => void;
 };
 
-export default function Navbar({
-  userName,
-  role,
-  avatarUrl = "/img/profil.png",
-  onNotificationClick,
-}: NavbarProps) {
+export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", onNotificationClick }: NavbarProps) {
   const [timeLabel, setTimeLabel] = useState(
     new Date().toLocaleTimeString("id-ID", {
       hour: "2-digit",
       minute: "2-digit",
     })
   );
+
+  const [notifOpen, setNotifOpen] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -43,38 +40,55 @@ export default function Navbar({
         <div className="relative flex h-16 w-full items-center justify-between gap-6">
           <div className="flex items-center gap-8">
             <div className="text-lg font-bold text-[color:var(--color-text-header)]">
-              <Image
-                src="/img/brand.png"
-                width={150}
-                height={150}
-                alt="Eaterno brand"
-              />
+              <Image src="/img/brand.png" width={150} height={150} alt="Eaterno brand" />
             </div>
             <HistoryOrderSearchBar />
           </div>
 
           <div className="flex items-center gap-5">
-            <button
-              type="button"
-              onClick={onNotificationClick}
-              className="relative rounded-full border-2 border-[color:var(--color-bg-tertiary)] bg-[var(--color-bg-primary)] p-3 transition hover:bg-[var(--color-primary-200)]"
-              aria-label="Notifikasi"
-            >
-              <NotificationIcon />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setNotifOpen((prev) => !prev);
+                  onNotificationClick?.();
+                }}
+                className="relative rounded-full border-2 border-[color:var(--color-bg-tertiary)] bg-[var(--color-bg-primary)] p-3 transition hover:bg-[var(--color-primary-200)]"
+                aria-label="Notifikasi"
+                aria-expanded={notifOpen}
+              >
+                <NotificationIcon />
+              </button>
 
-            <Image
-              src={avatarUrl}
-              width={100}
-              height={100}
-              alt={`${userName} avatar`}
-              className="h-fit w-fit object-cover"
-            />
+              {notifOpen && (
+                <div className="absolute right-0 top-full z-50 mt-4 w-[460px] rounded-2xl border border-[#e6e1dc] bg-white p-5 shadow-xl">
+                  <div className="absolute right-8 -top-2 h-4 w-4 rotate-45 border-l border-t border-[#e6e1dc] bg-white"></div>
+                  <p className="mb-4 text-xs text-[#8c8c8c]">Notification</p>
+                  <div className="space-y-4 text-[15px] text-[#1c1c1c]">
+                    <div className="space-y-1 border-b border-[#efe7e0] pb-4">
+                      <div className="flex items-center justify-between text-lg font-semibold">
+                        <span>Order Berhasil</span>
+                        <span className="text-sm font-semibold">#TRX1234567890</span>
+                      </div>
+                      <p className="text-sm text-[#8c8c8c]">Order Dengan ID Transaksi #TRX1234567890 Berhasil</p>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-[#efe7e0] pb-4 text-lg font-semibold">
+                      <span>Order Dibuat</span>
+                      <span className="text-sm font-semibold">#TRX1234567890</span>
+                    </div>
+                    <div className="flex items-center justify-between text-lg font-semibold">
+                      <span>Order Dicancel</span>
+                      <span className="text-sm font-semibold">#TRX1234567890</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Image src={avatarUrl} width={100} height={100} alt={`${userName} avatar`} className="h-fit w-fit object-cover" />
 
             <div className="text-left">
-              <div className="font-bold text-[color:var(--color-text-header)]">
-                {userName}
-              </div>
+              <div className="font-bold text-[color:var(--color-text-header)]">{userName}</div>
               <div className="text-sm text-[color:var(--color-text-body)]">
                 {role} at {timeLabel}
               </div>
@@ -88,13 +102,7 @@ export default function Navbar({
 
 function NotificationIcon() {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="25"
-      height="25"
-      viewBox="0 0 27 29"
-      fill="none"
-    >
+    <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 27 29" fill="none">
       <path
         fillRule="evenodd"
         clipRule="evenodd"

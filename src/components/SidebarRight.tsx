@@ -34,6 +34,7 @@ function formatRp(value: number) {
 
 export default function SidebarRight() {
   const [isRouting, setIsRouting] = useState(false);
+  const [orderCode, setOrderCode] = useState<string | null>(null);
 
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [selectedCoupons, setSelectedCoupons] = useState<string[]>([]);
@@ -42,6 +43,8 @@ export default function SidebarRight() {
   const pathname = usePathname();
   const tableParam = searchParams?.get("table");
   const selectedTable = tableParam ? Number(tableParam) : null;
+  const nameParam = searchParams?.get("name");
+  const orderTypeParam = searchParams?.get("orderType");
   const isPaymentsPage = pathname?.includes("/main/products/payments");
 
   const toggleCoupon = (coupon: string) => {
@@ -80,6 +83,12 @@ export default function SidebarRight() {
         setCoupons(mappedCoupons);
       })
       .catch((err) => console.error("Failed load coupons", err));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("lastTransactionCode");
+    if (stored) setOrderCode(stored);
   }, []);
 
   const cart = useCartStore((s) => s.cart);
@@ -125,6 +134,8 @@ export default function SidebarRight() {
     const chosenMethod = paymentMethod || "Qris";
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     if (selectedTable) params.set("table", selectedTable.toString());
+    if (nameParam) params.set("name", nameParam);
+    if (orderTypeParam) params.set("orderType", orderTypeParam);
     if (chosenMethod) params.set("method", chosenMethod);
 
     const query = params.toString();
@@ -142,7 +153,7 @@ export default function SidebarRight() {
           <Loading />
         </div>
       )}
-      <aside className="fixed top-20 right-0 bottom-0 w-[360px] border-l border-gray-200 bg-white p-4 flex flex-col">
+      <aside className="fixed top-[5.5rem] right-0 bottom-0 w-[360px] border-l border-gray-200 bg-white p-4 flex flex-col">
         {/* HEADER: info meja + kasir */}
         <div className="mb-4 border-b border-orange-100 pb-2">
           <div className="flex justify-between items-center text-sm">
@@ -150,7 +161,7 @@ export default function SidebarRight() {
               {selectedTable ? `Table No. #${selectedTable}` : "Table No. —"}
             </span>
             <span className="text-gray-400 text-xs font-semibold">
-              #5011CB14
+              {orderCode ? `#${orderCode}` : "#-"}
             </span>
           </div>
         </div>

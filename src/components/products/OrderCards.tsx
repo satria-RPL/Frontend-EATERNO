@@ -8,7 +8,7 @@ type OrderCardsProps = {
 
 function getHeaderMeta(order: OrderSummary) {
   if (order.type === "takeaway") {
-    return order.customer ?? "Take Away";
+    return order.customer ?? "Customer";
   }
 
   return order.table === "-" ? "Table -" : `Table ${order.table}`;
@@ -23,23 +23,13 @@ export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
       {orders.map((order) => {
         const headerMeta = getHeaderMeta(order);
         const typeLabel =
-          order.type === "dinein"
-            ? "Dine In"
-            : order.type === "takeaway"
-            ? "Take Away"
-            : "Waitlist";
+          order.type === "dinein" ? "Dine In" : "Take Away";
         const bodyClass =
-          order.type === "dinein"
-            ? "bg-rose-50"
-            : order.type === "takeaway"
-            ? "bg-orange-50"
-            : "bg-amber-50";
+          order.type === "dinein" ? "bg-rose-50" : "bg-orange-50";
         const buttonClass =
           order.type === "dinein"
             ? "bg-red-500 hover:bg-red-600"
-            : order.type === "takeaway"
-            ? "bg-orange-500 hover:bg-orange-600"
-            : "bg-amber-500 hover:bg-amber-600";
+            : "bg-orange-500 hover:bg-orange-600";
         const previewItems = order.itemsPreview.slice(0, 1);
         const hiddenItems = order.itemsPreview.length - previewItems.length;
         const moreCount =

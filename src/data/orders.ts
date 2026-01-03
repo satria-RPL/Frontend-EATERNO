@@ -1,6 +1,5 @@
 export const FILTERS = [
   { id: "all", label: "All", value: "all" },
-  { id: "waitlist", label: "Waitlist", value: "waitlist" },
   { id: "dinein", label: "Dine In", value: "dinein" },
   { id: "takeaway", label: "Take Away", value: "takeaway" },
 ] as const;
@@ -22,7 +21,7 @@ export type OrderSummary = {
 export const ORDERS: OrderSummary[] = [
   {
     id: 1,
-    type: "waitlist",
+    type: "takeaway",
     title: "Order #001",
     table: "A1",
     itemsCount: 5,
@@ -82,7 +81,7 @@ export const ORDERS: OrderSummary[] = [
   },
   {
     id: 7,
-    type: "waitlist",
+    type: "takeaway",
     title: "Order #007",
     table: "D1",
     itemsCount: 1,

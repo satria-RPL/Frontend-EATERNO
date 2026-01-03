@@ -74,6 +74,35 @@ function unwrapArray<T>(payload: unknown): T[] {
   return [];
 }
 
+function expandTransactions(records: KitchenOrderApiItem[]) {
+  const expanded: KitchenOrderApiItem[] = [];
+
+  records.forEach((record) => {
+    const transaction = asRecord(record);
+    const items =
+      transaction && Array.isArray(transaction.items)
+        ? (transaction.items as KitchenOrderApiItem[])
+        : null;
+
+    if (items) {
+      if (items.length === 0) {
+        expanded.push({ transaction });
+        return;
+      }
+
+      items.forEach((item) => {
+        const itemRecord = asRecord(item) ?? { item };
+        expanded.push({ ...itemRecord, transaction });
+      });
+      return;
+    }
+
+    expanded.push(record);
+  });
+
+  return expanded;
+}
+
 function normalizeOrderType(value: unknown): OrderSummary["type"] | null {
   const raw = toStringValue(value);
   if (!raw) return null;
@@ -81,10 +110,6 @@ function normalizeOrderType(value: unknown): OrderSummary["type"] | null {
 
   if (["dinein", "dine"].includes(normalized)) return "dinein";
   if (["takeaway", "takeout", "togo"].includes(normalized)) return "takeaway";
-  if (["waitlist", "waiting", "queued", "queue", "pending"].includes(normalized)) {
-    return "waitlist";
-  }
-
   return null;
 }
 
@@ -124,18 +149,22 @@ function resolveType(
 
   if (typeValue) return typeValue;
 
-  const statusValue = normalizeOrderType(
-    pickFirst(
-      item.status,
-      item.orderStatus,
-      item.order_status,
-      transaction?.status,
-      transaction?.orderStatus,
-      transaction?.order_status
-    )
+  const tableValue = pickFirst(
+    transaction?.table,
+    transaction?.tableNo,
+    transaction?.table_no,
+    transaction?.tableNumber,
+    transaction?.table_number,
+    transaction?.tableId,
+    transaction?.table_id,
+    item.table,
+    item.tableNo,
+    item.table_no,
+    item.tableNumber,
+    item.table_number
   );
 
-  return statusValue ?? "waitlist";
+  return tableValue != null ? "dinein" : "takeaway";
 }
 
 function resolveTitle(
@@ -179,6 +208,8 @@ function resolveTable(
     transaction?.table_no,
     transaction?.tableNumber,
     transaction?.table_number,
+    transaction?.tableId,
+    transaction?.table_id,
     item.table,
     item.tableNo,
     item.table_no,
@@ -194,11 +225,13 @@ function resolveCustomer(
   transaction: Record<string, unknown> | null
 ) {
   const rawCustomer = pickFirst(
+    transaction?.name,
     transaction?.customer,
     transaction?.customerName,
     transaction?.customer_name,
     transaction?.guestName,
     transaction?.guest_name,
+    item.name,
     item.customer,
     item.customerName,
     item.customer_name
@@ -307,11 +340,13 @@ function resolveItemCount(
     )
   );
 
-  return qty != null && qty > 0 ? qty : 1;
+  if (qty == null) return 1;
+  return qty > 0 ? qty : 0;
 }
 
 export function mapKitchenOrders(payload: unknown): OrderSummary[] {
-  const items = unwrapArray<KitchenOrderApiItem>(payload);
+  const rawItems = unwrapArray<KitchenOrderApiItem>(payload);
+  const items = expandTransactions(rawItems);
   if (items.length === 0) return [];
 
   const grouped = new Map<string, OrderSummary>();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import useHorizontalScroll from "@/lib/hooks/useHorizontalScroll";
 import { FILTERS, type OrderFilter, type OrderSummary } from "@/data/orders";

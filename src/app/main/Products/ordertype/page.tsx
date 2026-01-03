@@ -15,9 +15,15 @@ export default function OrderType() {
     if (!isFormValid) return;
 
     if (selected === "takeaway") {
-      router.push("/main/products/list");
+      const params = new URLSearchParams();
+      params.set("name", customerName.trim());
+      params.set("orderType", "takeaway");
+      router.push(`/main/products/list?${params.toString()}`);
     } else {
-      router.push("/main/products/choosetable");
+      const params = new URLSearchParams();
+      params.set("name", customerName.trim());
+      params.set("orderType", "dinein");
+      router.push(`/main/products/choosetable?${params.toString()}`);
     }
   };
 

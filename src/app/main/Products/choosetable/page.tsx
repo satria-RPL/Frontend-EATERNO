@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import TableCard from "@/components/cards/TableCard";
 import { TablesService } from "@/lib/services/tablesService";
@@ -17,6 +17,7 @@ export default function ChooseTable() {
   const [tables, setTables] = useState<TableUI[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     TablesService.getAll()
@@ -35,7 +36,10 @@ export default function ChooseTable() {
 
   const handleContinue = () => {
     if (!selected) return;
-    router.push(`/main/products/list?table=${selected}`);
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("table", selected.toString());
+    const query = params.toString();
+    router.push(query ? `/main/products/list?${query}` : "/main/products/list");
   };
 
   const smallTables = tables.filter((t) => t.size === "small");

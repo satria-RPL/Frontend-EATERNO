@@ -22,6 +22,13 @@ type TransactionItem = {
 
 type Transaction = {
   id?: number;
+  code?: string | number | null;
+  orderNumber?: string | number | null;
+  order_no?: string | number | null;
+  invoiceNumber?: string | number | null;
+  invoice_no?: string | number | null;
+  receiptNumber?: string | number | null;
+  receipt_no?: string | number | null;
   customerName?: string | null;
   orderType?: string | null;
   tableId?: number | null;
@@ -72,6 +79,21 @@ function normalizeName(tx: Transaction): string {
   return "-";
 }
 
+function resolveTransactionCode(tx: Transaction): string {
+  const raw =
+    tx.code ??
+    tx.orderNumber ??
+    tx.order_no ??
+    tx.invoiceNumber ??
+    tx.invoice_no ??
+    tx.receiptNumber ??
+    tx.receipt_no ??
+    tx.id;
+  if (raw == null) return "-";
+  const value = String(raw);
+  return value.startsWith("#") ? value : `#${value}`;
+}
+
 function sumItems(items?: TransactionItem[]): number {
   return (items ?? []).reduce((total, item) => total + (item.qty ?? 0), 0);
 }
@@ -109,7 +131,7 @@ export async function fetchOrders(): Promise<Order[]> {
         }) ?? [];
 
       return {
-        id: `#${tx.id ?? "-"}`,
+        id: resolveTransactionCode(tx),
         name: normalizeName(tx),
         payment: normalizePayment(tx.paymentMethodId ?? null),
         price: tx.total ?? 0,

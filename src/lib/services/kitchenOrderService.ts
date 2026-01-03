@@ -33,5 +33,5 @@ async function clientRequest<T = unknown>(path: string): Promise<ApiResult<T>> {
 }
 
 export function fetchKitchenOrders() {
-  return clientRequest("/api/kitchen-orders");
+  return clientRequest("/api/transactions");
 }
