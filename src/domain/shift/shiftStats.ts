@@ -1,3 +1,5 @@
+import type { Order } from "@/types/order";
+
 type ApiResult<T = unknown> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number; error: string; data?: unknown };
@@ -16,6 +18,12 @@ export type ShiftStatsSnapshot = {
   checkIn: string;
   workDuration: string;
   openedAtMs: number | null;
+};
+
+export type ShiftStatsMetrics = {
+  inProcess: number;
+  success: number;
+  income: number;
 };
 
 export type ShiftStatsService = {
@@ -116,23 +124,4 @@ export function buildShiftStatsSnapshot(
     checkIn: formatCheckIn(openShift.openedAt),
     workDuration: formatDuration(Date.now() - openedAtMs),
   };
-}
-
-export function createShiftStatsLoader({ fetchCashierShifts }: ShiftStatsService) {
-  async function loadShiftStats(fallback: ShiftStatsSnapshot) {
-    const result = await fetchCashierShifts();
-    if (!result.ok) {
-      return {
-        data: fallback,
-        error: result.error || "Gagal memuat shift",
-      };
-    }
-
-    return {
-      data: buildShiftStatsSnapshot(result.data, fallback),
-      error: null,
-    };
-  }
-
-  return { loadShiftStats };
 }

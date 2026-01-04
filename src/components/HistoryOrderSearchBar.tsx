@@ -38,13 +38,13 @@ export default function HistoryOrderSearchBar() {
     <div className="relative w-full max-w-[520px]">
       <Search
         size={16}
-        className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--color-text-subtle)]"
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-(--color-text-subtle)"
       />
       <input
         value={value}
         onChange={(event) => handleChange(event.target.value)}
         placeholder="Search Menu, Order and More"
-        className="w-full rounded-xl border border-[color:var(--color-bg-tertiary)] bg-[var(--color-bg-primary)] py-2.5 pl-10 pr-4 text-sm text-[color:var(--color-text-body)] placeholder:text-[color:var(--color-text-subtle)] outline-none focus:border-[color:var(--color-primary-500)]"
+        className="w-full rounded-xl border border-(--color-bg-tertiary) bg-(--color-bg-primary) py-2.5 pl-10 pr-4 text-sm text-(--color-text-body) placeholder:text-(--color-text-subtle) outline-none focus:border-(--color-primary-500)"
       />
     </div>
   );

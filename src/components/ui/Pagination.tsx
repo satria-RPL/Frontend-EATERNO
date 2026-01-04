@@ -53,8 +53,8 @@ export default function Pagination({
           onClick={() => setPage(page - 1)}
           className={`rounded-lg px-3 py-1.5 font-semibold ${
             canPrev
-              ? "bg-[var(--color-bg-quaternary)] text-[color:var(--color-text-body)]"
-              : "bg-[var(--color-bg-quaternary)] text-[color:var(--color-text-disabled)]"
+              ? "bg-(--color-bg-quaternary) text-(--color-text-body)"
+              : "bg-(--color-bg-quaternary) text-(--color-text-disabled)"
           }`}
         >
           Prev
@@ -66,8 +66,8 @@ export default function Pagination({
             onClick={() => setPage(p)}
             className={`h-8 w-8 rounded-lg text-center font-semibold ${
               p === page
-                ? "bg-[var(--color-primary-500)] text-[color:var(--color-text-neutral)]"
-                : "bg-[var(--color-bg-quaternary)] text-[color:var(--color-text-body)]"
+                ? "bg-(--color-primary-500) text-(--color-text-neutral)"
+                : "bg-(--color-bg-quaternary) text-(--color-text-body)"
             }`}
           >
             {p}
@@ -79,8 +79,8 @@ export default function Pagination({
           onClick={() => setPage(page + 1)}
           className={`rounded-lg px-3 py-1.5 font-semibold ${
             canNext
-              ? "bg-[var(--color-primary-500)] text-[color:var(--color-text-neutral)]"
-              : "bg-[var(--color-bg-quaternary)] text-[color:var(--color-text-disabled)]"
+              ? "bg-(--color-primary-500) text-(--color-text-neutral)"
+              : "bg-(--color-bg-quaternary) text-(--color-text-disabled)"
           }`}
         >
           Next
@@ -88,7 +88,7 @@ export default function Pagination({
       </div>
 
       {showGoTo && (
-        <div className="flex items-center gap-2 text-[color:var(--color-text-body)]">
+        <div className="flex items-center gap-2 text-(--color-text-body)">
           <span>Go To :</span>
           <input
             inputMode="numeric"
@@ -100,17 +100,17 @@ export default function Pagination({
                 handleGoTo(jumpValue);
               }
             }}
-            className="h-7 w-14 rounded-md border border-[color:var(--color-text-body)] bg-[var(--color-bg-primary)] text-center text-[color:var(--color-text-body)] outline-none"
+            className="h-7 w-14 rounded-md border border-(--color-text-body) bg-(--color-bg-primary) text-center text-(--color-text-body) outline-none"
           />
         </div>
       )}
 
       {showPerPage && setPerPage && (
-        <div className="flex items-center gap-2 text-[color:var(--color-text-body)]">
+        <div className="flex items-center gap-2 text-(--color-text-body)">
           <select
             value={perPage}
             onChange={(event) => setPerPage(Number(event.target.value))}
-            className="h-7 min-w-[52px] rounded-md border border-[color:var(--color-text-body)] bg-[var(--color-bg-primary)] px-2 text-[color:var(--color-text-body)] outline-none"
+            className="h-7 min-w-[52px] rounded-md border border-(--color-text-body) bg-(--color-bg-primary) px-2 text-(--color-text-body) outline-none"
           >
             {perPageOptions.map((option) => (
               <option key={option} value={option}>

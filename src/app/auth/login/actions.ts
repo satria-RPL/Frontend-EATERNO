@@ -20,8 +20,8 @@ export async function handleLogin(
 
   const result = await loginUser(username, password);
 
-  if (!result.success || !result.user) {
-    return { error: result.message ?? "Login gagal, coba lagi." };
+  if (!result.success || !result.user || !result.token) {
+    return { error: result.message ?? "Login gagal, token tidak valid." };
   }
 
   const user = result.user;

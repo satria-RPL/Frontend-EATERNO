@@ -33,7 +33,7 @@ export default function SidebarLeft() {
   return (
     <aside
       className={cn(
-        "fixed top-[5.5rem] bottom-0 left-0 border-r-2 border-gray-200 bg-white px-3 py-3 z-20 transform ease-in-out duration-300",
+        "fixed top-22 bottom-0 left-0 border-r-2 border-gray-200 bg-white px-3 py-3 z-20 transform ease-in-out duration-300",
         isSidebarExpanded ? "w-48" : "w-20"
       )}
     >

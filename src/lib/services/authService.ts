@@ -91,6 +91,10 @@ export async function loginService(username: string, password: string) {
       data.data?.accessToken ??
       data.data?.access_token;
 
+    if (!token) {
+      return { success: false, message: "Token login tidak ditemukan" };
+    }
+
     const tokenType =
       data.tokenType ??
       data.token_type ??

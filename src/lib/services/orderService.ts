@@ -1,4 +1,5 @@
-import { Order, OrderStatus } from "@/types/order";
+import { normalizeStatus } from "@/domain/transactions/normalizeStatus";
+import { Order } from "@/types/order";
 
 type TransactionItem = {
   qty?: number;
@@ -42,22 +43,6 @@ type Transaction = {
 };
 
 type TransactionResponse = Transaction[] | { data?: Transaction[] };
-
-function normalizeStatus(value: unknown): OrderStatus {
-  if (value === "proses" || value === "cancel" || value === "selesai") {
-    return value;
-  }
-  if (value === "done" || value === "finished" || value === "completed") {
-    return "selesai";
-  }
-  if (value === "cancelled" || value === "canceled") {
-    return "cancel";
-  }
-  if (value === "processing" || value === "process" || value === "pending") {
-    return "proses";
-  }
-  return "proses";
-}
 
 function normalizePayment(value: Transaction["paymentMethodId"]): string {
   if (typeof value === "string") return value;

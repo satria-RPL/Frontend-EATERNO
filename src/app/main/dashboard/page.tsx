@@ -5,9 +5,11 @@ import TotalBalance from "@/components/sections/TotalBalance";
 import BestSeller from "@/components/sections/BestSeller";
 import { getSessionUser } from "@/lib/session/authSession";
 import Motivation from "@/components/sections/Motivation";
+import { loadDashboardData } from "@/lib/services/dashboardService";
 
 export default async function DashboardPage() {
   const sessionUser = await getSessionUser();
+  const dashboardData = await loadDashboardData();
 
   return (
     <div className="p-4 space-y-6 min-h-screen">
@@ -18,7 +20,11 @@ export default async function DashboardPage() {
         {/* ================= ROW 1 ================= */}
         <div className="w-full flex justify-between gap-6">
           <div className="flex-1">
-            <ShiftStats userName={sessionUser.name} />
+            <ShiftStats
+              userName={sessionUser.name}
+              snapshot={dashboardData.shiftSnapshot}
+              metrics={dashboardData.shiftMetrics}
+            />
           </div>
 
           <div className="flex-1 bg-[#F8F8FA] rounded-xl shadow">
@@ -29,22 +35,28 @@ export default async function DashboardPage() {
         {/* ================= ROW 2 ================= */}
         <div className="w-full flex justify-between gap-6 py-5">
           <div className="flex-1">
-            <TotalIncome />
+            <TotalIncome data={dashboardData.totalIncomeData} />
           </div>
 
           <div className="flex-1">
-            <DaySelling />
+            <DaySelling
+              data={dashboardData.daySellingData}
+              series={dashboardData.daySellingSeries}
+            />
           </div>
         </div>
 
         {/* ================= ROW 3 ================= */}
         <div className="w-full flex justify-between gap-6">
           <div className="flex-1">
-            <TotalBalance />
+            <TotalBalance
+              totalIncome={dashboardData.totalBalanceIncome}
+              totalExpense={dashboardData.totalExpense}
+            />
           </div>
 
           <div className="flex-1">
-            <BestSeller />
+            <BestSeller items={dashboardData.bestSellers} />
           </div>
         </div>
       </div>

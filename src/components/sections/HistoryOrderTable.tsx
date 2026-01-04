@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Eye, Trash2 } from "lucide-react";
-import { fetchOrders } from "@/lib/orderService";
+import { fetchOrders } from "@/lib/services/orderService";
 import { Order } from "@/types/order";
 import Pagination from "@/components/ui/Pagination";
 import VoidModal from "@/components/modals/VoidTransaksi";

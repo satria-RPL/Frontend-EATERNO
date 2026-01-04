@@ -1,70 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Card from "../cards/Card";
-import { buildBestSellers, type BestSellerItem } from "@/domain/bestSeller";
-import { fetchTransactionItems } from "@/lib/services/transactionItemsService";
+import { type BestSellerItem } from "@/domain/bestSeller";
 
 const FALLBACK_IMAGE = "/img/coffee.jpg";
-const MAX_ITEMS = 4;
 
-export default function BestSeller() {
-  const [items, setItems] = useState<BestSellerItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type BestSellerProps = {
+  items: BestSellerItem[];
+};
 
-  useEffect(() => {
-    let isActive = true;
-
-    const load = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const result = await fetchTransactionItems();
-        if (!result.ok) {
-          throw new Error(result.error || "Gagal memuat best seller.");
-        }
-
-        const bestSellers = buildBestSellers(result.data, {
-          maxItems: MAX_ITEMS,
-          fallbackImage: FALLBACK_IMAGE,
-        });
-        if (!isActive) return;
-        setItems(bestSellers);
-      } catch (err) {
-        if (!isActive) return;
-        setItems([]);
-        setError(
-          err instanceof Error ? err.message : "Gagal memuat best seller."
-        );
-      } finally {
-        if (isActive) setIsLoading(false);
-      }
-    };
-
-    load();
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
+export default function BestSeller({ items }: BestSellerProps) {
 
   return (
     <Card className="p-6">
       <h2 className="text-lg font-[Poppins] font-semibold mb-4">Best Seller</h2>
 
       <div className="space-y-1.5">
-        {isLoading && (
-          <div className="text-sm text-gray-500">Loading...</div>
-        )}
-
-        {!isLoading && error && (
-          <div className="text-sm text-red-500">{error}</div>
-        )}
-
-        {!isLoading && !error && items.length === 0 && (
+        {items.length === 0 && (
           <div className="text-sm text-gray-500">Belum ada data.</div>
         )}
 

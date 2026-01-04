@@ -1,3 +1,5 @@
+import { normalizeStatus } from "@/domain/transactions/normalizeStatus";
+
 type TransactionItem = {
   id?: number | string;
   menuId?: number | string;
@@ -15,6 +17,15 @@ type TransactionItem = {
     imageUrl?: string;
     image_url?: string;
   };
+};
+
+type TransactionRecord = {
+  status?: string | null;
+  items?: TransactionItem[];
+  transactionItems?: TransactionItem[];
+  transaction_items?: TransactionItem[];
+  orderItems?: TransactionItem[];
+  order_items?: TransactionItem[];
 };
 
 export type BestSellerItem = {
@@ -48,6 +59,20 @@ function toStringValue(value: unknown): string | null {
   return null;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function pickFirst(...values: unknown[]) {
+  for (const value of values) {
+    if (value == null) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    return value;
+  }
+  return null;
+}
+
 function unwrapArray<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) return payload as T[];
   if (!payload || typeof payload !== "object") return [];
@@ -64,6 +89,19 @@ function unwrapArray<T>(payload: unknown): T[] {
   }
 
   return [];
+}
+
+function resolveTransactionItems(record: TransactionRecord): TransactionItem[] {
+  const items = pickFirst(
+    record.items,
+    record.transactionItems,
+    record.transaction_items,
+    record.orderItems,
+    record.order_items
+  );
+
+  if (!Array.isArray(items)) return [];
+  return items as TransactionItem[];
 }
 
 export function buildBestSellers(
@@ -115,4 +153,26 @@ export function buildBestSellers(
   return Array.from(map.values())
     .sort((a, b) => b.sold - a.sold)
     .slice(0, maxItems);
+}
+
+export function buildBestSellersFromTransactions(
+  payload: unknown,
+  options: { maxItems?: number; fallbackImage?: string } = {}
+) {
+  const transactions = unwrapArray<Record<string, unknown>>(payload);
+  const items: TransactionItem[] = [];
+
+  transactions.forEach((transaction) => {
+    const record = asRecord(transaction);
+    if (!record) return;
+    if (normalizeStatus(record.status) !== "selesai") return;
+
+    const transactionItems = resolveTransactionItems(
+      record as TransactionRecord
+    );
+    if (transactionItems.length === 0) return;
+    items.push(...transactionItems);
+  });
+
+  return buildBestSellers(items, options);
 }

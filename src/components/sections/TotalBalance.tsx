@@ -1,13 +1,18 @@
 "use client";
 
-import incomeData from "@/data/income.json";
 import Card from "../cards/Card";
 import { FaChartLine } from "react-icons/fa";
 import { FaWallet } from "react-icons/fa";
 
-export default function TotalBalance() {
-  const totalIncome = incomeData.food + incomeData.drink + incomeData.others;
-  const totalExpense = 1550020; // sementara fixed
+type TotalBalanceProps = {
+  totalIncome: number;
+  totalExpense?: number;
+};
+
+export default function TotalBalance({
+  totalIncome,
+  totalExpense = 0,
+}: TotalBalanceProps) {
   const balance = totalIncome - totalExpense;
 
   return (

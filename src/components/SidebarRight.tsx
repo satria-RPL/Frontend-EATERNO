@@ -153,7 +153,7 @@ export default function SidebarRight() {
           <Loading />
         </div>
       )}
-      <aside className="fixed top-[5.5rem] right-0 bottom-0 w-[360px] border-l border-gray-200 bg-white p-4 flex flex-col">
+      <aside className="fixed top-22 right-0 bottom-0 w-[360px] border-l border-gray-200 bg-white p-4 flex flex-col">
         {/* HEADER: info meja + kasir */}
         <div className="mb-4 border-b border-orange-100 pb-2">
           <div className="flex justify-between items-center text-sm">

@@ -10,20 +10,30 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-interface SellingData {
-  day: string;
-  food: number;
-  drink: number;
-  others: number;
-}
+export type SellingSeries = {
+  key: string;
+  label: string;
+  color: string;
+};
 
-export default function DaySellingAreaChart({ data }: { data: SellingData[] }) {
-  // Legend config: label + color
-  const legends = [
-    { key: "food", label: "Food", color: "#F97316" },
-    { key: "drink", label: "Drink", color: "#0EA5E9" },
-    { key: "others", label: "Others", color: "#6B7280" },
-  ];
+export type SellingData = {
+  day: string;
+} & Record<string, number>;
+
+const DEFAULT_SERIES: SellingSeries[] = [
+  { key: "food", label: "Food", color: "#F97316" },
+  { key: "drink", label: "Drink", color: "#0EA5E9" },
+  { key: "others", label: "Others", color: "#6B7280" },
+];
+
+export default function DaySellingAreaChart({
+  data,
+  series = DEFAULT_SERIES,
+}: {
+  data: SellingData[];
+  series?: SellingSeries[];
+}) {
+  const legends = series;
 
   // simple connector icon (two circles connected by a bar)
   const ConnectorIcon = ({ color }: { color: string }) => (
@@ -57,22 +67,19 @@ export default function DaySellingAreaChart({ data }: { data: SellingData[] }) {
             <XAxis dataKey="day" />
             <defs>
               {/* FOOD */}
-              <linearGradient id="food" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#F97316" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#F97316" stopOpacity={0.1} />
-              </linearGradient>
-
-              {/* DRINK */}
-              <linearGradient id="drink" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#0EA5E9" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#0EA5E9" stopOpacity={0.1} />
-              </linearGradient>
-
-              {/* OTHERS */}
-              <linearGradient id="others" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6B7280" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#6B7280" stopOpacity={0.1} />
-              </linearGradient>
+              {legends.map((legend) => (
+                <linearGradient
+                  key={legend.key}
+                  id={legend.key}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="5%" stopColor={legend.color} stopOpacity={0.8} />
+                  <stop offset="95%" stopColor={legend.color} stopOpacity={0.1} />
+                </linearGradient>
+              ))}
             </defs>
 
             {/* Custom Y ticks */}
@@ -81,42 +88,26 @@ export default function DaySellingAreaChart({ data }: { data: SellingData[] }) {
             <CartesianGrid strokeDasharray="3 3" />
             <Tooltip />
 
-            {/* FOOD */}
-            <Area
-              type="monotone"
-              dataKey="food"
-              stroke="#F97316"
-              fill="url(#food)"
-              dot={{ r: 4 }}
-            />
-
-            {/* DRINK */}
-            <Area
-              type="monotone"
-              dataKey="drink"
-              stroke="#0EA5E9"
-              fill="url(#drink)"
-              dot={{ r: 4 }}
-            />
-
-            {/* OTHERS */}
-            <Area
-              type="monotone"
-              dataKey="others"
-              stroke="#6B7280"
-              fill="url(#others)"
-              dot={{ r: 4 }}
-            />
+            {legends.map((legend) => (
+              <Area
+                key={legend.key}
+                type="monotone"
+                dataKey={legend.key}
+                stroke={legend.color}
+                fill={`url(#${legend.key})`}
+                dot={{ r: 4 }}
+              />
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
       {/* Cleaner Legend: map dari konfigurasi, memakai SVG connector icon */}
       <div className="flex gap-6 mt-3 text-sm items-center justify-center">
-        {legends.map((l) => (
-          <div key={l.key} className="flex items-center gap-2">
-            <ConnectorIcon color={l.color} />
-            <span className="text-gray-700">{l.label}</span>
+        {legends.map((legend) => (
+          <div key={legend.key} className="flex items-center gap-2">
+            <ConnectorIcon color={legend.color} />
+            <span className="text-gray-700">{legend.label}</span>
           </div>
         ))}
       </div>

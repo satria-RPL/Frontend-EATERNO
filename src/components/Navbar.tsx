@@ -35,11 +35,11 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
   }, []);
 
   return (
-    <nav className="fixed top-0 z-50 w-full border-0 bg-[var(--color-bg-primary)] text-[color:var(--color-text-body)] shadow-sm">
+    <nav className="fixed top-0 z-50 w-full bg-(--color-bg-primary) text-(--color-text-body) shadow-sm">
       <div className="mx-auto flex max-w-full items-center justify-between px-8 py-3">
         <div className="relative flex h-16 w-full items-center justify-between gap-6">
           <div className="flex items-center gap-8">
-            <div className="text-lg font-bold text-[color:var(--color-text-header)]">
+            <div className="text-lg font-bold text-(--color-text-header)">
               <Image src="/img/brand.png" width={150} height={150} alt="Eaterno brand" />
             </div>
             <HistoryOrderSearchBar />
@@ -53,7 +53,7 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
                   setNotifOpen((prev) => !prev);
                   onNotificationClick?.();
                 }}
-                className="relative rounded-full border-2 border-[color:var(--color-bg-tertiary)] bg-[var(--color-bg-primary)] p-3 transition hover:bg-[var(--color-primary-200)]"
+                className="relative rounded-full border-2 border-(--color-bg-tertiary) bg-(--color-bg-primary) p-3 transition hover:bg-(--color-primary-200)"
                 aria-label="Notifikasi"
                 aria-expanded={notifOpen}
               >
@@ -88,9 +88,9 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
             <Image src={avatarUrl} width={100} height={100} alt={`${userName} avatar`} className="h-fit w-fit object-cover" />
 
             <div className="text-left">
-              <div className="font-bold text-[color:var(--color-text-header)]">{userName}</div>
-              <div className="text-sm text-[color:var(--color-text-body)]">
-                {role} at {timeLabel}
+              <div className="font-bold text-(--color-text-header)">{userName}</div>
+              <div className="text-sm text-(--color-text-body)">
+                {role} {timeLabel}
               </div>
             </div>
           </div>

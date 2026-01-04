@@ -64,3 +64,7 @@ export async function createTransaction(payload: TransactionPayload) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function fetchTransactions() {
+  return fetchApi("/api/transactions");
+}
