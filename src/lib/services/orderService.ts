@@ -5,6 +5,8 @@ type TransactionItem = {
   qty?: number;
   price?: number | null;
   menuId?: number | null;
+  transactionId?: number | null;
+  transaction_id?: number | null;
   menu?: {
     id?: number | null;
     name?: string | null;
@@ -35,6 +37,7 @@ type Transaction = {
   tableId?: number | null;
   status?: string | null;
   items?: TransactionItem[];
+  itemsJson?: TransactionItem[];
   total?: number | null;
   tax?: number | null;
   discount?: number | null;
@@ -43,6 +46,8 @@ type Transaction = {
 };
 
 type TransactionResponse = Transaction[] | { data?: Transaction[] };
+
+type TransactionItemsResponse = TransactionItem[] | { data?: TransactionItem[] };
 
 function normalizePayment(value: Transaction["paymentMethodId"]): string {
   if (typeof value === "string") return value;
@@ -83,44 +88,80 @@ function sumItems(items?: TransactionItem[]): number {
   return (items ?? []).reduce((total, item) => total + (item.qty ?? 0), 0);
 }
 
+function resolveTransactionId(item: TransactionItem): number | null {
+  const value = item.transactionId ?? item.transaction_id ?? null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return null;
+}
+
+function mapDetailItems(items: TransactionItem[]) {
+  return items.map((item) => {
+    const name = item.menu?.name ?? "Menu";
+    const qty = item.qty ?? 0;
+    const price = item.price ?? 0;
+    const options =
+      item.variants?.map((variant) => ({
+        label: variant.menuVariant?.name ?? "Varian",
+        price: variant.extraPrice ?? 0,
+      })) ?? [];
+    return {
+      name,
+      qty,
+      price,
+      options: options.length > 0 ? options : undefined,
+    };
+  });
+}
+
 export async function fetchOrders(): Promise<Order[]> {
   try {
-    const res = await fetch("/api/transactions", { cache: "no-store" });
-    const data = (await res.json().catch(() => null)) as
+    const [transactionsRes, itemsRes] = await Promise.all([
+      fetch("/api/transactions", { cache: "no-store" }),
+      fetch("/api/transaction-items", { cache: "no-store" }).catch(() => null),
+    ]);
+
+    const data = (await transactionsRes.json().catch(() => null)) as
       | TransactionResponse
       | null;
+    const itemsPayload = itemsRes
+      ? ((await itemsRes.json().catch(() => null)) as
+          | TransactionItemsResponse
+          | null)
+      : null;
 
-    if (!res.ok || !data) {
+    if (!transactionsRes.ok || !data) {
       return [];
     }
 
     const transactions = Array.isArray(data) ? data : data.data ?? [];
+    const transactionItems = Array.isArray(itemsPayload)
+      ? itemsPayload
+      : itemsPayload?.data ?? [];
+
+    const itemsByTransactionId = new Map<number, TransactionItem[]>();
+    for (const item of transactionItems) {
+      const transactionId = resolveTransactionId(item);
+      if (!transactionId) continue;
+      const existing = itemsByTransactionId.get(transactionId) ?? [];
+      existing.push(item);
+      itemsByTransactionId.set(transactionId, existing);
+    }
 
     return transactions.map((tx) => {
-      const detailItems =
-        tx.items?.map((item) => {
-          const name = item.menu?.name ?? "Menu";
-          const qty = item.qty ?? 0;
-          const price = item.price ?? 0;
-          const options =
-            item.variants?.map((variant) => ({
-              label: variant.menuVariant?.name ?? "Varian",
-              price: variant.extraPrice ?? 0,
-            })) ?? [];
-          return {
-            name,
-            qty,
-            price,
-            options: options.length > 0 ? options : undefined,
-          };
-        }) ?? [];
+      const relatedItems =
+        tx.items && tx.items.length > 0
+          ? tx.items
+          : tx.itemsJson && tx.itemsJson.length > 0
+          ? tx.itemsJson
+          : itemsByTransactionId.get(tx.id ?? -1) ?? [];
+      const detailItems = mapDetailItems(relatedItems);
 
       return {
         id: resolveTransactionCode(tx),
         name: normalizeName(tx),
         payment: normalizePayment(tx.paymentMethodId ?? null),
         price: tx.total ?? 0,
-        items: sumItems(tx.items),
+        items: sumItems(relatedItems),
         date: tx.createdAt ?? new Date().toISOString(),
         status: normalizeStatus(tx.status ?? null),
         tax: tx.tax ?? 0,

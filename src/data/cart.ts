@@ -1,5 +1,6 @@
 // src/data/cart.ts
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export type CartAddon = {
   id: string;
@@ -75,8 +76,10 @@ function isSameLine(
   return getCartLineKey(item) === lineKey;
 }
 
-export const useCartStore = create<CartState>((set, get) => ({
-  cart: [],
+export const useCartStore = create<CartState>()(
+  persist(
+    (set, get) => ({
+      cart: [],
 
   // Adds item; merges when same productId and identical addons
   addToCart: (item) =>
@@ -154,10 +157,16 @@ export const useCartStore = create<CartState>((set, get) => ({
       return sum + itemTotal;
     }, 0),
 
-  getTotal: (opts) => {
-    const { taxPercent = 0, discount = 0, rounding = 0 } = opts || {};
-    const subtotal = get().getSubtotal();
-    const tax = Math.round((subtotal * taxPercent) / 100);
-    return subtotal + tax - discount + rounding;
-  },
-}));
+      getTotal: (opts) => {
+        const { taxPercent = 0, discount = 0, rounding = 0 } = opts || {};
+        const subtotal = get().getSubtotal();
+        const tax = Math.round((subtotal * taxPercent) / 100);
+        return subtotal + tax - discount + rounding;
+      },
+    }),
+    {
+      name: "eaterno-cart",
+      partialize: (state) => ({ cart: state.cart }),
+    }
+  )
+);

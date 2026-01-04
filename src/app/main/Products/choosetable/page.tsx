@@ -36,6 +36,7 @@ export default function ChooseTable() {
 
   const handleContinue = () => {
     if (!selected) return;
+    persistCheckoutState({ tableId: selected });
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("table", selected.toString());
     const query = params.toString();
@@ -95,3 +96,27 @@ export default function ChooseTable() {
     </div>
   );
 }
+
+function persistCheckoutState(next: Partial<CheckoutState>) {
+  if (typeof window === "undefined") return;
+  const saved = window.localStorage.getItem("eaterno-checkout");
+  let current: CheckoutState = {};
+  if (saved) {
+    try {
+      current = JSON.parse(saved) as CheckoutState;
+    } catch {
+      current = {};
+    }
+  }
+  const merged = { ...current, ...next };
+  window.localStorage.setItem("eaterno-checkout", JSON.stringify(merged));
+}
+
+type CheckoutState = {
+  customerName?: string;
+  orderType?: "takeaway" | "dinein";
+  tableId?: number | null;
+  paymentMethod?: string;
+  selectedCoupons?: string[];
+  cashInput?: string;
+};

@@ -8,6 +8,7 @@ export type TransactionPayload = {
   tableId?: number | string | null;
   orderType?: string | null;
   customerName?: string | null;
+  totalItems?: number | null;
   total?: number | null;
   tax?: number | null;
   discount?: number | null;

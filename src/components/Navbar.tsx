@@ -20,6 +20,10 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
   );
 
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifError, setNotifError] = useState<string | null>(null);
+  const [notifItems, setNotifItems] = useState<NotificationItem[]>([]);
+  const [notifLoaded, setNotifLoaded] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -33,6 +37,49 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!notifOpen || notifLoaded) return;
+
+    const loadNotifications = async () => {
+      setNotifLoading(true);
+      setNotifError(null);
+
+      try {
+        const res = await fetch("/api/transactions", {
+          cache: "no-store",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+        const payload = (await res.json().catch(() => null)) as
+          | TransactionResponse
+          | null;
+
+        if (!res.ok || !payload) {
+          setNotifError("Gagal memuat notifikasi");
+          setNotifItems([]);
+          setNotifLoaded(true);
+          setNotifLoading(false);
+          return;
+        }
+
+        const transactions = Array.isArray(payload)
+          ? payload
+          : payload.data ?? [];
+
+        const mapped = transactions.slice(0, 5).map(mapTransactionNotification);
+        setNotifItems(mapped);
+        setNotifLoaded(true);
+      } catch {
+        setNotifError("Gagal memuat notifikasi");
+        setNotifItems([]);
+      } finally {
+        setNotifLoading(false);
+      }
+    };
+
+    loadNotifications();
+  }, [notifOpen, notifLoaded]);
 
   return (
     <nav className="fixed top-0 z-50 w-full bg-(--color-bg-primary) text-(--color-text-body) shadow-sm">
@@ -65,21 +112,48 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
                   <div className="absolute right-8 -top-2 h-4 w-4 rotate-45 border-l border-t border-[#e6e1dc] bg-white"></div>
                   <p className="mb-4 text-xs text-[#8c8c8c]">Notification</p>
                   <div className="space-y-4 text-[15px] text-[#1c1c1c]">
-                    <div className="space-y-1 border-b border-[#efe7e0] pb-4">
-                      <div className="flex items-center justify-between text-lg font-semibold">
-                        <span>Order Berhasil</span>
-                        <span className="text-sm font-semibold">#TRX1234567890</span>
-                      </div>
-                      <p className="text-sm text-[#8c8c8c]">Order Dengan ID Transaksi #TRX1234567890 Berhasil</p>
-                    </div>
-                    <div className="flex items-center justify-between border-b border-[#efe7e0] pb-4 text-lg font-semibold">
-                      <span>Order Dibuat</span>
-                      <span className="text-sm font-semibold">#TRX1234567890</span>
-                    </div>
-                    <div className="flex items-center justify-between text-lg font-semibold">
-                      <span>Order Dicancel</span>
-                      <span className="text-sm font-semibold">#TRX1234567890</span>
-                    </div>
+                    {notifLoading && (
+                      <p className="text-sm text-[#8c8c8c]">
+                        Memuat notifikasi...
+                      </p>
+                    )}
+                    {!notifLoading && notifError && (
+                      <p className="text-sm text-red-500">{notifError}</p>
+                    )}
+                    {!notifLoading &&
+                      !notifError &&
+                      notifItems.length === 0 && (
+                        <p className="text-sm text-[#8c8c8c]">
+                          Belum ada notifikasi.
+                        </p>
+                      )}
+                    {!notifLoading &&
+                      !notifError &&
+                      notifItems.map((item, index) => {
+                        const isLast = index === notifItems.length - 1;
+                        return (
+                          <div
+                            key={`${item.code}-${index}`}
+                            className={
+                              isLast
+                                ? "space-y-1"
+                                : "space-y-1 border-b border-[#efe7e0] pb-4"
+                            }
+                          >
+                            <div className="flex items-center justify-between text-lg font-semibold">
+                              <span>{item.title}</span>
+                              <span className="text-sm font-semibold">
+                                {item.code}
+                              </span>
+                            </div>
+                            {item.detail && (
+                              <p className="text-sm text-[#8c8c8c]">
+                                {item.detail}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}
@@ -112,4 +186,61 @@ function NotificationIcon() {
       />
     </svg>
   );
+}
+
+type Transaction = {
+  id?: number;
+  code?: string | number | null;
+  orderNumber?: string | number | null;
+  order_no?: string | number | null;
+  invoiceNumber?: string | number | null;
+  invoice_no?: string | number | null;
+  receiptNumber?: string | number | null;
+  receipt_no?: string | number | null;
+  status?: string | null;
+};
+
+type TransactionResponse = Transaction[] | { data?: Transaction[] };
+
+type NotificationItem = {
+  title: string;
+  code: string;
+  detail?: string;
+};
+
+function mapTransactionNotification(tx: Transaction): NotificationItem {
+  const code = resolveTransactionCode(tx);
+  const status = (tx.status ?? "").toLowerCase();
+  if (status === "paid" || status === "done" || status === "selesai") {
+    return {
+      title: "Order Berhasil",
+      code,
+      detail: `Order Dengan ID Transaksi ${code} Berhasil`,
+    };
+  }
+  if (status === "cancel" || status === "canceled" || status === "cancelled") {
+    return {
+      title: "Order Dicancel",
+      code,
+    };
+  }
+  return {
+    title: "Order Dibuat",
+    code,
+  };
+}
+
+function resolveTransactionCode(tx: Transaction): string {
+  const raw =
+    tx.code ??
+    tx.orderNumber ??
+    tx.order_no ??
+    tx.invoiceNumber ??
+    tx.invoice_no ??
+    tx.receiptNumber ??
+    tx.receipt_no ??
+    tx.id ??
+    "-";
+  const value = String(raw);
+  return value.startsWith("#") ? value : `#${value}`;
 }

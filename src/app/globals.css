@@ -1,5 +1,127 @@
 @import "tailwindcss";
 
+:root {
+  --text-default: #1e1e1e;
+  --primary: #EB5714;
+  --secondary: #F7B23B;
+  --tertiary: #e8e9ed;
+  --background-dark: #1f1f1f;
+  --background: #f4f4f4;
+}
+
+@layer base {
+  input,
+  select,
+  textarea {
+    color: var(--text-default);
+    border-color: var(--tertiary);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: color-mix(in srgb, var(--text-default) 45%, transparent);
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--primary);
+    outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .text-primary {
+    color: var(--primary);
+  }
+  .text-secondary {
+    color: var(--secondary);
+  }
+  .text-tertiary {
+    color: var(--tertiary);
+  }
+  .text-default {
+    color: var(--text-default);
+  }
+
+  .bg-primary {
+    background-color: var(--primary);
+  }
+  .bg-secondary {
+    background-color: var(--secondary);
+  }
+  .bg-tertiary {
+    background-color: var(--tertiary);
+  }
+  .bg-default {
+    background-color: var(--background);
+  }
+  .bg-dark {
+    background-color: var(--background-dark);
+  }
+
+  .text-orange-500,
+  .text-orange-600,
+  .text-orange-400 {
+    color: var(--primary);
+  }
+
+  .border-orange-500,
+  .border-orange-600,
+  .border-orange-400 {
+    border-color: var(--primary);
+  }
+
+  .bg-orange-500,
+  .bg-orange-600,
+  .bg-orange-700 {
+    background-color: var(--primary);
+  }
+
+  .bg-orange-300 {
+    background-color: color-mix(in srgb, var(--primary) 35%, white);
+  }
+
+  .bg-orange-100 {
+    background-color: color-mix(in srgb, var(--primary) 18%, white);
+  }
+
+  .bg-orange-50 {
+    background-color: color-mix(in srgb, var(--primary) 10%, white);
+  }
+
+  .text-gray-600 {
+    color: color-mix(in srgb, var(--text-default) 70%, transparent);
+  }
+
+  .text-gray-500 {
+    color: color-mix(in srgb, var(--text-default) 60%, transparent);
+  }
+
+  .text-gray-400 {
+    color: color-mix(in srgb, var(--text-default) 45%, transparent);
+  }
+
+  .border-gray-300,
+  .border-gray-200 {
+    border-color: var(--tertiary);
+  }
+
+  .bg-gray-100 {
+    background-color: var(--background);
+  }
+
+  .bg-gray-200,
+  .bg-gray-300 {
+    background-color: var(--tertiary);
+  }
+
+  .bg-gray-400 {
+    background-color: color-mix(in srgb, var(--text-default) 30%, white);
+  }
+}
+
 .hide-scrollbar {
   -ms-overflow-style: none; /* IE 10+ */
   scrollbar-width: none; /* Firefox */

@@ -76,6 +76,26 @@ const FALLBACK_CATEGORY: ProductCategory = {
   icon: "/icon/forkandspoon.png",
 };
 
+const CATEGORY_ICON_MAP: Record<string, string> = {
+  beverages: "/icon/coffee.png",
+  beverage: "/icon/coffee.png",
+  drink: "/icon/coffee.png",
+  drinks: "/icon/coffee.png",
+  food: "/icon/ricebowl.png",
+  rice: "/icon/ricebowl.png",
+  ricebowl: "/icon/ricebowl.png",
+  tea: "/icon/teapot.png",
+  juice: "/icon/juice.png",
+  pasta: "/icon/pasta.webp",
+};
+
+function resolveCategoryIcon(label: string | null, fallback: string) {
+  if (!label) return fallback;
+  const normalized = label.trim().toLowerCase();
+  if (!normalized) return fallback;
+  return CATEGORY_ICON_MAP[normalized] ?? fallback;
+}
+
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -236,10 +256,12 @@ function buildCategoriesFromEndpoint(
         item.image_url ??
         "/icon/forkandspoon.png";
 
+      const resolvedIcon = resolveCategoryIcon(labelSource, icon);
+
       return {
         id: String(categoryId),
         label: labelSource ?? `Kategori ${categoryId}`,
-        icon,
+        icon: resolvedIcon,
       };
     })
     .filter((category): category is ProductCategory => Boolean(category));

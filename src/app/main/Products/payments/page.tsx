@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { useCartStore } from "@/data/cart";
 import { createTransaction } from "@/lib/services/transactionService";
+import { calculateRounding } from "@/lib/rounding";
+import { Button } from "@/components/ui/Button";
 import { Wallet, QrCode, Landmark } from "lucide-react";
 
 type PaymentMethod = "Qris" | "Cash" | "Bank";
@@ -25,12 +27,23 @@ export default function PaymentPage() {
   const cart = useCartStore((s) => s.cart);
   const clearCart = useCartStore((s) => s.clearCart);
   const getSubtotal = useCartStore((s) => s.getSubtotal);
-  const getTotal = useCartStore((s) => s.getTotal);
   const router = useRouter();
 
-  const totalAmount = useMemo(() => getTotal({ taxPercent: 10, discount: 0, rounding: 0 }), [cart, getTotal]);
   const subtotal = useMemo(() => getSubtotal(), [cart, getSubtotal]);
+  const itemsCount = useMemo(
+    () => cart.reduce((sum, item) => sum + (item.qty ?? 0), 0),
+    [cart]
+  );
   const taxAmount = useMemo(() => Math.round((subtotal * 10) / 100), [subtotal]);
+  const baseTotal = useMemo(() => subtotal + taxAmount, [subtotal, taxAmount]);
+  const roundingAmount = useMemo(() => {
+    const { rounding } = calculateRounding(baseTotal);
+    return rounding;
+  }, [baseTotal]);
+  const totalAmount = useMemo(() => {
+    const { roundedTotal } = calculateRounding(baseTotal);
+    return roundedTotal;
+  }, [baseTotal]);
 
   useEffect(() => {
     const paramMethod = searchParams?.get("method");
@@ -41,6 +54,27 @@ export default function PaymentPage() {
     if (normalized === "qris") setMethod("Qris");
     if (normalized === "bank") setMethod("Bank");
   }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = getCheckoutState();
+    if (!searchParams?.get("method") && saved.paymentMethod) {
+      const normalized = saved.paymentMethod.toLowerCase();
+      if (normalized === "cash") setMethod("Cash");
+      if (normalized === "qris") setMethod("Qris");
+      if (normalized === "bank") setMethod("Bank");
+    }
+    if (!cashInput && saved.cashInput) {
+      setCashInput(saved.cashInput);
+    }
+  }, [searchParams, cashInput]);
+
+  useEffect(() => {
+    persistCheckoutState({
+      paymentMethod: method,
+      cashInput,
+    });
+  }, [method, cashInput]);
 
   const cashNumber = Number(cashInput.replace(/\D/g, ""));
   const change = cashNumber > totalAmount ? cashNumber - totalAmount : 0;
@@ -53,7 +87,6 @@ export default function PaymentPage() {
   const orderTypeParam = searchParams?.get("orderType");
 
   const paymentMethodId = method === "Cash" ? 1 : method === "Qris" ? 2 : 3;
-  const orderType = resolveOrderType(orderTypeParam, tableId);
 
   const buildTransactionItems = () =>
     cart.map((item) => ({
@@ -73,11 +106,25 @@ export default function PaymentPage() {
     setIsSubmitting(true);
     setSubmitError(null);
 
+    const savedState = getCheckoutState();
+    const resolvedTableId = Number.isFinite(tableId)
+      ? tableId
+      : Number.isFinite(savedState.tableId)
+      ? savedState.tableId ?? null
+      : null;
+    const resolvedCustomerName =
+      customerName ?? savedState.customerName ?? null;
+    const resolvedOrderType = resolveOrderType(
+      orderTypeParam ?? savedState.orderType ?? null,
+      resolvedTableId
+    );
+
     const result = await createTransaction({
       placeId: Number.isFinite(placeId) ? placeId : null,
-      tableId: Number.isFinite(tableId) ? tableId : null,
-      orderType,
-      customerName,
+      tableId: resolvedTableId,
+      orderType: resolvedOrderType,
+      customerName: resolvedCustomerName,
+      totalItems: itemsCount,
       total: totalAmount,
       tax: taxAmount,
       discount: 0,
@@ -93,6 +140,7 @@ export default function PaymentPage() {
 
     persistTransactionCode(result.data);
     clearCart();
+    clearCheckoutState();
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("method");
     const query = params.toString();
@@ -115,9 +163,13 @@ export default function PaymentPage() {
 
         {/* Card Content */}
         <div className="p-4">
-          {method === "Qris" && <QrisView total={totalAmount} />}
+          {method === "Qris" && (
+            <QrisView total={totalAmount} rounding={roundingAmount} />
+          )}
           {method === "Cash" && <CashView total={totalAmount} cashInput={cashInput} setCashInput={setCashInput} change={change} onSubmit={handleProcessOrder} submitting={isSubmitting} errorMessage={submitError} />}
-          {method === "Bank" && <BankWaitingView total={totalAmount} />}
+          {method === "Bank" && (
+            <BankWaitingView total={totalAmount} rounding={roundingAmount} />
+          )}
         </div>
       </div>
     </main>
@@ -176,7 +228,7 @@ function TabButton({ label, active, onClick, icon }: { label: string; active: bo
 
 // === QRIS VIEW ===
 
-function QrisView({ total }: { total: number }) {
+function QrisView({ total, rounding }: { total: number; rounding: number }) {
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="w-150 h-100 rounded-xl bg-gray-100 flex items-center justify-center">
@@ -195,6 +247,14 @@ function QrisView({ total }: { total: number }) {
       <div className="flex gap-2 justify-start items-start w-145">
         <p className="font-medium">Total:</p>
         <p className="text-orange-500 font-medium">{formatRupiah(total)}</p>
+      </div>
+      <div className="flex gap-2 justify-start items-start w-145 text-xs text-[#8c8c8c]">
+        <p>Rounding:</p>
+        <p>
+          {rounding >= 0
+            ? formatRupiah(rounding)
+            : `- ${formatRupiah(Math.abs(rounding))}`}
+        </p>
       </div>
     </div>
   );
@@ -247,22 +307,81 @@ function CashView({
 
       {errorMessage && <p className="text-sm text-red-500">{errorMessage}</p>}
 
-      <button type="button" onClick={onSubmit} disabled={submitting} className="mt-2 w-full rounded-md bg-orange-500 text-white py-2 font-normal flex items-center justify-center gap-1 disabled:cursor-not-allowed disabled:opacity-70">
+      <Button
+        type="button"
+        onClick={onSubmit}
+        disabled={submitting}
+        className="mt-2 w-full rounded-md py-2 font-normal"
+      >
         {submitting ? "Memproses..." : "Proses Order"}
-      </button>
+      </Button>
     </div>
   );
 }
 
 // === BANK / WAITING VIEW ===
 
-function BankWaitingView({ total }: { total: number }) {
+function BankWaitingView({
+  total,
+  rounding,
+}: {
+  total: number;
+  rounding: number;
+}) {
   return (
     <div className="flex flex-col items-center gap-4 py-4">
       <div className="flex gap-2 w-full font-medium">
         <span>Total</span>
         <span className="font-medium text-orange-500">{formatRupiah(total)}</span>
       </div>
+      <div className="flex gap-2 w-full text-xs text-[#8c8c8c]">
+        <span>Rounding</span>
+        <span>
+          {rounding >= 0
+            ? formatRupiah(rounding)
+            : `- ${formatRupiah(Math.abs(rounding))}`}
+        </span>
+      </div>
     </div>
   );
 }
+
+function persistCheckoutState(next: Partial<CheckoutState>) {
+  if (typeof window === "undefined") return;
+  const saved = window.localStorage.getItem("eaterno-checkout");
+  let current: CheckoutState = {};
+  if (saved) {
+    try {
+      current = JSON.parse(saved) as CheckoutState;
+    } catch {
+      current = {};
+    }
+  }
+  const merged = { ...current, ...next };
+  window.localStorage.setItem("eaterno-checkout", JSON.stringify(merged));
+}
+
+function getCheckoutState(): CheckoutState {
+  if (typeof window === "undefined") return {};
+  const saved = window.localStorage.getItem("eaterno-checkout");
+  if (!saved) return {};
+  try {
+    return JSON.parse(saved) as CheckoutState;
+  } catch {
+    return {};
+  }
+}
+
+function clearCheckoutState() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem("eaterno-checkout");
+}
+
+type CheckoutState = {
+  customerName?: string;
+  orderType?: "takeaway" | "dinein";
+  tableId?: number | null;
+  paymentMethod?: string;
+  selectedCoupons?: string[];
+  cashInput?: string;
+};

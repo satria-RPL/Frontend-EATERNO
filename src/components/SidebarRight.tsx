@@ -6,6 +6,8 @@ import { ReceiptText, CheckCircle2, CircleSlash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Wallet, QrCode, Landmark } from "lucide-react";
 import { getCoupons } from "@/lib/services/couponService";
+import { calculateRounding } from "@/lib/rounding";
+import { Button } from "@/components/ui/Button";
 
 const paymentOptions = [
   {
@@ -48,11 +50,13 @@ export default function SidebarRight() {
   const isPaymentsPage = pathname?.includes("/main/products/payments");
 
   const toggleCoupon = (coupon: string) => {
-    if (selectedCoupons.includes(coupon)) {
-      setSelectedCoupons((prev) => prev.filter((c) => c !== coupon));
-    } else {
-      setSelectedCoupons((prev) => [...prev, coupon]);
-    }
+    setSelectedCoupons((prev) => {
+      const next = prev.includes(coupon)
+        ? prev.filter((c) => c !== coupon)
+        : [...prev, coupon];
+      persistCheckoutState({ selectedCoupons: next });
+      return next;
+    });
   };
 
   type PromotionRule = {
@@ -87,6 +91,19 @@ export default function SidebarRight() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("eaterno-checkout");
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as CheckoutState;
+      if (parsed.paymentMethod) setPaymentMethod(parsed.paymentMethod);
+      if (Array.isArray(parsed.selectedCoupons)) {
+        setSelectedCoupons(parsed.selectedCoupons);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem("lastTransactionCode");
     if (stored) setOrderCode(stored);
   }, []);
@@ -94,7 +111,6 @@ export default function SidebarRight() {
   const cart = useCartStore((s) => s.cart);
   const removeFromCart = useCartStore((s) => s.removeFromCart);
   const getSubtotal = useCartStore((s) => s.getSubtotal);
-  const getTotal = useCartStore((s) => s.getTotal);
 
   const itemsCount = cart.reduce((sum, i) => sum + (i.qty || 0), 0);
   const isCartEmpty = cart.length === 0;
@@ -121,9 +137,10 @@ export default function SidebarRight() {
 
     return Math.min(totalDiscount, subtotal);
   })();
-  const rounding = 0;
   const tax = Math.round((subtotal * taxPercent) / 100);
-  const total = getTotal({ taxPercent, discount, rounding });
+  const baseTotal = subtotal + tax - discount;
+  const { rounding, roundedTotal } = calculateRounding(baseTotal);
+  const total = roundedTotal;
 
   const handleRemove = (productId: number, lineKey?: string) => {
     removeFromCart(productId, lineKey);
@@ -137,6 +154,10 @@ export default function SidebarRight() {
     if (nameParam) params.set("name", nameParam);
     if (orderTypeParam) params.set("orderType", orderTypeParam);
     if (chosenMethod) params.set("method", chosenMethod);
+    persistCheckoutState({
+      paymentMethod: chosenMethod,
+      selectedCoupons,
+    });
 
     const query = params.toString();
     setIsRouting(true);
@@ -158,7 +179,7 @@ export default function SidebarRight() {
         <div className="mb-4 border-b border-orange-100 pb-2">
           <div className="flex justify-between items-center text-sm">
             <span className="font-semibold">
-              {selectedTable ? `Table No. #${selectedTable}` : "Table No. —"}
+              {selectedTable ? `Table No. #${selectedTable}` : "Table No. -"}
             </span>
             <span className="text-gray-400 text-xs font-semibold">
               {orderCode ? `#${orderCode}` : "#-"}
@@ -258,7 +279,7 @@ export default function SidebarRight() {
             </div>
             <div className="flex justify-between mb-8">
               <span>Rounding</span>
-              <span>{rounding}</span>
+              <span>{rounding >= 0 ? `Rp ${formatRp(rounding)}` : `-Rp ${formatRp(Math.abs(rounding))}`}</span>
             </div>
 
             <div className="flex justify-between mt-2 pt-2 text-sm font-semibold border-t border-orange-100">
@@ -277,7 +298,10 @@ export default function SidebarRight() {
                   {paymentOptions.map((m) => (
                     <button
                       key={m.value}
-                      onClick={() => setPaymentMethod(m.value)}
+                      onClick={() => {
+                        setPaymentMethod(m.value);
+                        persistCheckoutState({ paymentMethod: m.value });
+                      }}
                       className={`flex items-center gap-1.5 px-3 py-1 rounded-[5px] border text-xs transition ${
                         paymentMethod === m.value
                           ? "bg-orange-500 text-white border-orange-500"
@@ -330,17 +354,42 @@ export default function SidebarRight() {
         {/* BUTTON PROSES */}
         {!isPaymentsPage && (
           <div className="pt-5">
-            <button
-              className="w-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-white transition disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
+            <Button
               onClick={handleContinue}
               disabled={isCartEmpty}
+              size="lg"
+              className="w-full rounded-2xl text-sm font-semibold text-white disabled:bg-gray-300 disabled:text-gray-500"
             >
               <ReceiptText size={20} className="mr-1" />
               Proses Order
-            </button>
+            </Button>
           </div>
         )}
       </aside>
     </>
   );
 }
+
+function persistCheckoutState(next: Partial<CheckoutState>) {
+  if (typeof window === "undefined") return;
+  const saved = window.localStorage.getItem("eaterno-checkout");
+  let current: CheckoutState = {};
+  if (saved) {
+    try {
+      current = JSON.parse(saved) as CheckoutState;
+    } catch {
+      current = {};
+    }
+  }
+  const merged = { ...current, ...next };
+  window.localStorage.setItem("eaterno-checkout", JSON.stringify(merged));
+}
+
+type CheckoutState = {
+  customerName?: string;
+  orderType?: "takeaway" | "dinein";
+  tableId?: number | null;
+  paymentMethod?: string;
+  selectedCoupons?: string[];
+  cashInput?: string;
+};
