@@ -20,14 +20,14 @@ export default function TableCard({
       onClick={onClick}
       disabled={disabled}
       className={`
-        flex items-center justify-center rounded-xl border-2
-        ${size === "small" ? "w-20 h-12" : "w-48 h-16"} 
+        flex items-center font-semibold justify-center rounded-[10px] border-3
+        ${size === "small" ? "w-18 h-18" : "w-48 h-20"} 
         ${
           disabled
             ? "bg-gray-400 text-white cursor-not-allowed"
             : active
-            ? "bg-orange-500 text-white border-orange-500"
-            : "border-orange-500 hover:bg-orange-100"
+            ? "bg-orange-600 text-white border-orange-600"
+            : "border-orange-600 hover:bg-orange-100"
         }
       `}
     >

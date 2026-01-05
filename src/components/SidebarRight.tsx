@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ReceiptText, CheckCircle2, CircleSlash2 } from "lucide-react";
+import { ReceiptText, RotateCcw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Wallet, QrCode, Landmark } from "lucide-react";
 import { getCoupons } from "@/lib/services/couponService";
 import { calculateRounding } from "@/lib/rounding";
 import { Button } from "@/components/ui/Button";
+import { getCouponUIState } from "@/lib/utils/coupon-ui";
 
 const paymentOptions = [
   {
@@ -44,7 +45,7 @@ export default function SidebarRight() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const tableParam = searchParams?.get("table");
-  const selectedTable = tableParam ? Number(tableParam) : null;
+  const selectedTable = tableParam ?? null;
   const nameParam = searchParams?.get("name");
   const orderTypeParam = searchParams?.get("orderType");
   const isPaymentsPage = pathname?.includes("/main/products/payments");
@@ -67,7 +68,11 @@ export default function SidebarRight() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
 
   type Coupon = {
+    id: number;
     name: string;
+    placeId: number;
+    startAt: string;
+    endAt: string;
     rules: PromotionRule[];
   };
 
@@ -75,7 +80,11 @@ export default function SidebarRight() {
     getCoupons()
       .then(({ promotions, rules }) => {
         const mappedCoupons = promotions.map((promo) => ({
+          id: promo.id,
           name: promo.name,
+          placeId: promo.placeId,
+          startAt: promo.startAt,
+          endAt: promo.endAt,
           rules: rules
             .filter((r) => r.promotionId === promo.id)
             .map((r) => ({
@@ -106,6 +115,20 @@ export default function SidebarRight() {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem("lastTransactionCode");
     if (stored) setOrderCode(stored);
+  }, []);
+
+  const [orderType, setOrderType] = useState<"dinein" | "takeaway" | null>(
+    null
+  );
+
+  useEffect(() => {
+    const saved = localStorage.getItem("eaterno-checkout");
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved);
+      setOrderType(parsed.orderType ?? null);
+    } catch {}
   }, []);
 
   const cart = useCartStore((s) => s.cart);
@@ -167,6 +190,26 @@ export default function SidebarRight() {
     );
   };
 
+  const handleChangeTable = () => {
+    const saved = localStorage.getItem("eaterno-checkout");
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved);
+
+      // ⬅️ HANYA hapus tableId
+      delete parsed.tableId;
+
+      localStorage.setItem("eaterno-checkout", JSON.stringify(parsed));
+
+      const params = new URLSearchParams();
+      if (parsed.customerName) params.set("name", parsed.customerName);
+      if (parsed.orderType) params.set("orderType", parsed.orderType);
+
+      router.push(`/main/products/choosetable?${params.toString()}`);
+    } catch {}
+  };
+
   return (
     <>
       {isRouting && (
@@ -181,10 +224,26 @@ export default function SidebarRight() {
             <span className="font-semibold">
               {selectedTable ? `Table No. #${selectedTable}` : "Table No. -"}
             </span>
+
             <span className="text-gray-400 text-xs font-semibold">
               {orderCode ? `#${orderCode}` : "#-"}
             </span>
           </div>
+          {/* Change Table */}
+          {orderType === "dinein" && (
+            <button
+              onClick={handleChangeTable}
+              className="mt-2 inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-orange-500 transition hover:bg-orange-50"
+            >
+              <Image
+                src="/icon/change.svg"
+                alt="Change Table"
+                width={25}
+                height={25}
+              />
+              Change Table
+            </button>
+          )}
         </div>
 
         <div className="overflow-y-auto overscroll-y-contain px-4 pb-4 space-y-4 hide-scrollbar flex-1">
@@ -279,7 +338,11 @@ export default function SidebarRight() {
             </div>
             <div className="flex justify-between mb-8">
               <span>Rounding</span>
-              <span>{rounding >= 0 ? `Rp ${formatRp(rounding)}` : `-Rp ${formatRp(Math.abs(rounding))}`}</span>
+              <span>
+                {rounding >= 0
+                  ? `Rp ${formatRp(rounding)}`
+                  : `-Rp ${formatRp(Math.abs(rounding))}`}
+              </span>
             </div>
 
             <div className="flex justify-between mt-2 pt-2 text-sm font-semibold border-t border-orange-100">
@@ -318,30 +381,56 @@ export default function SidebarRight() {
               {/* COUPON DISC */}
               <div className="mb-4">
                 <p className="text-xs font-semibold mb-2">Coupon Disc</p>
+
                 <div className="space-y-2 text-xs">
                   {coupons.map((coupon) => {
-                    const active = selectedCoupons.includes(coupon.name);
+                    const uiState = getCouponUIState(coupon, selectedCoupons);
+
+                    const iconSrc =
+                      uiState === "selected"
+                        ? "/icon/selected.svg"
+                        : uiState === "expired"
+                        ? "/icon/expired.svg"
+                        : "/icon/available.svg";
+
                     return (
                       <button
-                        key={coupon.name}
+                        key={coupon.id}
+                        disabled={uiState === "expired"}
                         onClick={() => toggleCoupon(coupon.name)}
-                        className={`w-full flex justify-between items-center px-3 py-2 rounded-lg text-xs font-semibold ${
-                          active
-                            ? "bg-orange-100 text-orange-600"
-                            : "bg-gray-100 text-gray-500"
-                        }`}
+                        className={`group w-full flex justify-between items-center px-3 py-2 rounded-lg font-semibold transition
+            ${
+              uiState === "selected"
+                ? "bg-orange-100 text-orange-600"
+                : uiState === "expired"
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-white border border-gray-200 text-gray-600 hover:bg-orange-50"
+            }
+          `}
                       >
+                        {/* LEFT ICON + TEXT */}
                         <span className="flex items-center gap-2">
-                          {active ? (
-                            <CheckCircle2
-                              size={18}
-                              className="text-orange-500"
-                            />
-                          ) : (
-                            <CircleSlash2 size={18} className="text-gray-400" />
-                          )}
+                          <Image
+                            src={iconSrc}
+                            width={23}
+                            height={23}
+                            alt={uiState}
+                          />
                           {coupon.name}
                         </span>
+
+                        {/* RIGHT RADIO */}
+                        <span
+                          className={`w-4 h-4 rounded-full border transition
+              ${
+                uiState === "selected"
+                  ? "bg-orange-500 border-orange-500"
+                  : uiState === "expired"
+                  ? "border-gray-300"
+                  : "border-gray-400 group-hover:border-orange-400"
+              }
+            `}
+                        />
                       </button>
                     );
                   })}

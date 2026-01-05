@@ -16,6 +16,7 @@ import { ProductsHeader } from "@/components/products/ProductsHeader";
 import { OrderCards } from "@/components/products/OrderCards";
 import { ProductCategories } from "@/components/products/ProductCategories";
 import { ProductsGrid } from "@/components/products/ProductsGrid";
+import { useRouter } from "next/navigation";
 
 type ProductsListClientProps = {
   products: ProductItem[];
@@ -26,6 +27,7 @@ export default function ProductsListClient({
   products,
   categories,
 }: ProductsListClientProps) {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<OrderFilter>("all");
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -33,6 +35,13 @@ export default function ProductsListClient({
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(
     null
   );
+
+  const handleBackOrderType = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("eaterno-checkout");
+    }
+    router.push("/main/products/ordertype");
+  };
 
   const { loadKitchenOrders } = useMemo(
     () => createKitchenOrdersLoader({ fetchKitchenOrders }),
@@ -88,6 +97,7 @@ export default function ProductsListClient({
           filters={FILTERS}
           orders={orders}
           onChangeFilter={(value) => setActiveFilter(value)}
+          onBack={handleBackOrderType}
         />
 
         <OrderCards orders={filteredOrders} scrollRef={scrollRef} />
@@ -98,7 +108,10 @@ export default function ProductsListClient({
           onSelectCategory={(id) => setActiveCategory(id)}
         />
 
-        <ProductsGrid products={filteredProducts} onAddToCart={handleAddToCart} />
+        <ProductsGrid
+          products={filteredProducts}
+          onAddToCart={handleAddToCart}
+        />
       </div>
 
       <AddOnsModal

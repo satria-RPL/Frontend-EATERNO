@@ -51,7 +51,7 @@ export default function ChooseTable() {
       <h1 className="text-2xl font-semibold mb-6">Choose Table</h1>
 
       {/* Small */}
-      <div className="grid grid-cols-8 gap-4 mb-10">
+      <div className="grid grid-cols-10 gap-1 mb-10">
         {smallTables.map((t) => (
           <TableCard
             key={t.id}
