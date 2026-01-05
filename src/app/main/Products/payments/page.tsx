@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCartStore } from "@/data/cart";
 import { createTransaction } from "@/lib/services/transactionService";
 import { calculateRounding } from "@/lib/rounding";
+import { getCoupons } from "@/lib/services/couponService";
 import { Button } from "@/components/ui/Button";
 import { Wallet, QrCode, Landmark } from "lucide-react";
 
@@ -18,12 +19,22 @@ const formatRupiah = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+function formatCashInput(value: string) {
+  if (!value) return "";
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 export default function PaymentPage() {
   const searchParams = useSearchParams();
   const [method, setMethod] = useState<PaymentMethod>("Qris");
   const [cashInput, setCashInput] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [selectedCoupons, setSelectedCoupons] = useState<string[]>([]);
+  const [checkoutLoaded, setCheckoutLoaded] = useState(false);
   const cart = useCartStore((s) => s.cart);
   const clearCart = useCartStore((s) => s.clearCart);
   const getSubtotal = useCartStore((s) => s.getSubtotal);
@@ -35,7 +46,27 @@ export default function PaymentPage() {
     [cart]
   );
   const taxAmount = useMemo(() => Math.round((subtotal * 10) / 100), [subtotal]);
-  const baseTotal = useMemo(() => subtotal + taxAmount, [subtotal, taxAmount]);
+  const discountAmount = useMemo(() => {
+    let totalDiscount = 0;
+    const activeCoupons = coupons.filter((c) =>
+      selectedCoupons.includes(c.name)
+    );
+    for (const coupon of activeCoupons) {
+      for (const rule of coupon.rules ?? []) {
+        if (rule.type === "percentage_discount") {
+          totalDiscount += (subtotal * rule.value) / 100;
+        }
+        if (rule.type === "fixed_discount") {
+          totalDiscount += rule.value;
+        }
+      }
+    }
+    return Math.min(totalDiscount, subtotal);
+  }, [coupons, selectedCoupons, subtotal]);
+  const baseTotal = useMemo(
+    () => subtotal + taxAmount - discountAmount,
+    [subtotal, taxAmount, discountAmount]
+  );
   const roundingAmount = useMemo(() => {
     const { rounding } = calculateRounding(baseTotal);
     return rounding;
@@ -57,6 +88,7 @@ export default function PaymentPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (checkoutLoaded) return;
     const saved = getCheckoutState();
     if (!searchParams?.get("method") && saved.paymentMethod) {
       const normalized = saved.paymentMethod.toLowerCase();
@@ -64,10 +96,42 @@ export default function PaymentPage() {
       if (normalized === "qris") setMethod("Qris");
       if (normalized === "bank") setMethod("Bank");
     }
-    if (!cashInput && saved.cashInput) {
+    if (typeof saved.cashInput === "string") {
       setCashInput(saved.cashInput);
     }
-  }, [searchParams, cashInput]);
+    if (Array.isArray(saved.selectedCoupons)) {
+      setSelectedCoupons(saved.selectedCoupons);
+    }
+    setCheckoutLoaded(true);
+  }, [searchParams, checkoutLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCoupons()
+      .then(({ promotions, rules }) => {
+        if (cancelled) return;
+        const mappedCoupons = promotions.map((promo) => ({
+          id: promo.id,
+          name: promo.name,
+          placeId: promo.placeId,
+          startAt: promo.startAt,
+          endAt: promo.endAt,
+          rules: rules
+            .filter((r) => r.promotionId === promo.id)
+            .map((r) => ({
+              type: r.ruleType as "percentage_discount" | "fixed_discount",
+              value: Number(r.value),
+            })),
+        }));
+        setCoupons(mappedCoupons);
+      })
+      .catch(() => {
+        if (!cancelled) setCoupons([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     persistCheckoutState({
@@ -78,6 +142,7 @@ export default function PaymentPage() {
 
   const cashNumber = Number(cashInput.replace(/\D/g, ""));
   const change = cashNumber > totalAmount ? cashNumber - totalAmount : 0;
+  const canProcessCash = cashInput !== "" && cashNumber >= totalAmount;
   const tableParam = searchParams?.get("table");
   const tableId = tableParam ? Number(tableParam) : null;
   const placeParam = searchParams?.get("place");
@@ -130,7 +195,7 @@ export default function PaymentPage() {
       totalItems: itemsCount,
       total: totalAmount,
       tax: taxAmount,
-      discount: 0,
+      discount: discountAmount,
       paymentMethodId,
       items: buildTransactionItems(),
     });
@@ -169,7 +234,18 @@ export default function PaymentPage() {
           {method === "Qris" && (
             <QrisView total={totalAmount} rounding={roundingAmount} />
           )}
-          {method === "Cash" && <CashView total={totalAmount} cashInput={cashInput} setCashInput={setCashInput} change={change} onSubmit={handleProcessOrder} submitting={isSubmitting} errorMessage={submitError} />}
+          {method === "Cash" && (
+            <CashView
+              total={totalAmount}
+              cashInput={cashInput}
+              setCashInput={setCashInput}
+              change={change}
+              onSubmit={handleProcessOrder}
+              submitting={isSubmitting}
+              errorMessage={submitError}
+              canProcess={canProcessCash}
+            />
+          )}
           {method === "Bank" && (
             <BankWaitingView total={totalAmount} rounding={roundingAmount} />
           )}
@@ -273,6 +349,7 @@ function CashView({
   onSubmit,
   submitting,
   errorMessage,
+  canProcess,
 }: {
   total: number;
   cashInput: string;
@@ -281,6 +358,7 @@ function CashView({
   onSubmit: () => void;
   submitting: boolean;
   errorMessage: string | null;
+  canProcess: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -295,8 +373,10 @@ function CashView({
           <input
             type="text"
             inputMode="numeric"
-            value={cashInput}
-            onChange={(e) => setCashInput(e.target.value)}
+            value={formatCashInput(cashInput)}
+            onChange={(e) =>
+              setCashInput(e.target.value.replace(/[^\d]/g, ""))
+            }
             placeholder="Rp"
             className="w-full rounded-md border-2 border-gray-200 px-2 py-1 focus:outline-none focus:border-orange-500"
           />
@@ -313,7 +393,7 @@ function CashView({
       <Button
         type="button"
         onClick={onSubmit}
-        disabled={submitting}
+        disabled={submitting || !canProcess}
         className="mt-2 w-full rounded-md py-2 font-normal"
       >
         {submitting ? "Memproses..." : "Proses Order"}
@@ -395,4 +475,18 @@ type CheckoutState = {
   paymentMethod?: string;
   selectedCoupons?: string[];
   cashInput?: string;
+};
+
+type PromotionRule = {
+  type: "percentage_discount" | "fixed_discount";
+  value: number;
+};
+
+type Coupon = {
+  id: number;
+  name: string;
+  placeId: number;
+  startAt: string;
+  endAt: string;
+  rules: PromotionRule[];
 };
