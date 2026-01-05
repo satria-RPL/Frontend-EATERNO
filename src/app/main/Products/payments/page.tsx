@@ -94,8 +94,7 @@ export default function PaymentPage() {
       qty: item.qty ?? 0,
       price: item.price ?? 0,
       variants: (item.addons ?? []).map((addon) => ({
-        menuVariantId:
-          addon.menuVariantItemId ?? addon.variantId ?? addon.id,
+        menuVariantId: addon.variantId ?? null,
         extraPrice: addon.price ?? 0,
         qty: addon.qty ?? 0,
       })),
@@ -107,11 +106,15 @@ export default function PaymentPage() {
     setSubmitError(null);
 
     const savedState = getCheckoutState();
+    const storedPlaceId = resolveStoredPlaceId();
     const resolvedTableId = Number.isFinite(tableId)
       ? tableId
       : Number.isFinite(savedState.tableId)
       ? savedState.tableId ?? null
       : null;
+    const resolvedPlaceId = Number.isFinite(placeId)
+      ? placeId
+      : storedPlaceId;
     const resolvedCustomerName =
       customerName ?? savedState.customerName ?? null;
     const resolvedOrderType = resolveOrderType(
@@ -120,7 +123,7 @@ export default function PaymentPage() {
     );
 
     const result = await createTransaction({
-      placeId: Number.isFinite(placeId) ? placeId : null,
+      placeId: resolvedPlaceId,
       tableId: resolvedTableId,
       orderType: resolvedOrderType,
       customerName: resolvedCustomerName,
@@ -375,6 +378,14 @@ function getCheckoutState(): CheckoutState {
 function clearCheckoutState() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem("eaterno-checkout");
+}
+
+function resolveStoredPlaceId(): number | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem("eaterno-place-id");
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 type CheckoutState = {

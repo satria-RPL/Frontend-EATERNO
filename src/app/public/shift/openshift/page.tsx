@@ -72,6 +72,7 @@ export default function OpenShiftPage() {
         if (!result.ok) {
           throw new Error(result.error || "Gagal membuka shift.");
         }
+        persistPlaceId(placeId);
         startRouting(() => router.push("/main/dashboard"));
       })
       .catch((err) => {
@@ -260,4 +261,10 @@ export default function OpenShiftPage() {
       />
     </div>
   );
+}
+
+function persistPlaceId(placeId: string) {
+  if (typeof window === "undefined") return;
+  if (!placeId) return;
+  window.localStorage.setItem("eaterno-place-id", placeId);
 }
