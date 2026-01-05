@@ -39,72 +39,61 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
     return () => clearInterval(interval);
   }, []);
 
-  const loadNotifications = useCallback(
-    async (showLoading: boolean) => {
-      if (showLoading) {
-        setNotifLoading(true);
-      }
-      setNotifError(null);
+  const loadNotifications = useCallback(async (showLoading: boolean) => {
+    if (showLoading) {
+      setNotifLoading(true);
+    }
+    setNotifError(null);
 
-      try {
-        const [transactionsRes, shiftsRes] = await Promise.all([
-          fetch("/api/transactions", {
-            cache: "no-store",
-            credentials: "include",
-            headers: { Accept: "application/json" },
-          }),
-          fetch("/api/cashier-shifts", {
-            cache: "no-store",
-            credentials: "include",
-            headers: { Accept: "application/json" },
-          }),
-        ]);
-        const payload = (await transactionsRes.json().catch(() => null)) as
-          | TransactionResponse
-          | null;
-        const shiftsPayload = (await shiftsRes.json().catch(() => null)) as
-          | unknown
-          | null;
+    try {
+      const [transactionsRes, shiftsRes] = await Promise.all([
+        fetch("/api/transactions", {
+          cache: "no-store",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        }),
+        fetch("/api/cashier-shifts", {
+          cache: "no-store",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        }),
+      ]);
+      const payload = (await transactionsRes.json().catch(() => null)) as TransactionResponse | null;
+      const shiftsPayload = (await shiftsRes.json().catch(() => null)) as unknown | null;
 
-        if (!transactionsRes.ok || !payload) {
-          setNotifError("Gagal memuat notifikasi");
-          setNotifItems([]);
-          return;
-        }
-
-        const transactions = Array.isArray(payload)
-          ? payload
-          : payload.data ?? [];
-
-        const nextShiftKey = resolveShiftKey(shiftsPayload) ?? "default";
-        const readState = loadNotificationReadState(nextShiftKey);
-        const readSet = new Set(readState.readEventKeys);
-        const mapped = transactions.map(mapTransactionNotification);
-        const withRead = mapped.map((item) => ({
-          ...item,
-          isRead: isEventRead(item.eventKey, readSet, item.code),
-        }));
-        const newestFive = [...withRead]
-          .sort((a, b) => compareTimestampDesc(a.timestamp, b.timestamp))
-          .slice(0, 5);
-        const sorted = newestFive.sort((a, b) => {
-          const readDiff = Number(a.isRead) - Number(b.isRead);
-          if (readDiff !== 0) return readDiff;
-          return compareTimestampDesc(a.timestamp, b.timestamp);
-        });
-        setNotifShiftKey(readState.shiftKey);
-        setNotifItems(sorted);
-      } catch {
+      if (!transactionsRes.ok || !payload) {
         setNotifError("Gagal memuat notifikasi");
         setNotifItems([]);
-      } finally {
-        if (showLoading) {
-          setNotifLoading(false);
-        }
+        return;
       }
-    },
-    []
-  );
+
+      const transactions = Array.isArray(payload) ? payload : payload.data ?? [];
+
+      const nextShiftKey = resolveShiftKey(shiftsPayload) ?? "default";
+      const readState = loadNotificationReadState(nextShiftKey);
+      const readSet = new Set(readState.readEventKeys);
+      const mapped = transactions.map(mapTransactionNotification);
+      const withRead = mapped.map((item) => ({
+        ...item,
+        isRead: isEventRead(item.eventKey, readSet, item.code),
+      }));
+      const newestFive = [...withRead].sort((a, b) => compareTimestampDesc(a.timestamp, b.timestamp)).slice(0, 5);
+      const sorted = newestFive.sort((a, b) => {
+        const readDiff = Number(a.isRead) - Number(b.isRead);
+        if (readDiff !== 0) return readDiff;
+        return compareTimestampDesc(a.timestamp, b.timestamp);
+      });
+      setNotifShiftKey(readState.shiftKey);
+      setNotifItems(sorted);
+    } catch {
+      setNotifError("Gagal memuat notifikasi");
+      setNotifItems([]);
+    } finally {
+      if (showLoading) {
+        setNotifLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (notifOpen) {
@@ -128,9 +117,7 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
         const nextRead = new Set(readState.readEventKeys);
         notifItems.forEach((item) => nextRead.add(item.eventKey));
         saveNotificationReadState(notifShiftKey, Array.from(nextRead));
-        setNotifItems((current) =>
-          current.map((item) => ({ ...item, isRead: true }))
-        );
+        setNotifItems((current) => current.map((item) => ({ ...item, isRead: true })));
       }
     }
 
@@ -164,9 +151,7 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
                 aria-expanded={notifOpen}
               >
                 <NotificationIcon />
-                {hasUnread && (
-                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" />
-                )}
+                {hasUnread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" />}
               </button>
 
               {notifOpen && (
@@ -174,56 +159,24 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
                   <div className="absolute right-8 -top-2 h-4 w-4 rotate-45 border-l border-t border-[#e6e1dc] bg-white"></div>
                   <p className="mb-4 text-xs text-[#8c8c8c]">Notification</p>
                   <div className="space-y-4 pt-2 text-[15px] text-[#1c1c1c]">
-                    {notifLoading && (
-                      <p className="text-sm text-[#8c8c8c]">
-                        Memuat notifikasi...
-                      </p>
-                    )}
-                    {!notifLoading && notifError && (
-                      <p className="text-sm text-red-500">{notifError}</p>
-                    )}
-                    {!notifLoading &&
-                      !notifError &&
-                      notifItems.length === 0 && (
-                        <p className="text-sm text-[#8c8c8c]">
-                          Belum ada notifikasi.
-                        </p>
-                      )}
+                    {notifLoading && <p className="text-sm text-[#8c8c8c]">Memuat notifikasi...</p>}
+                    {!notifLoading && notifError && <p className="text-sm text-red-500">{notifError}</p>}
+                    {!notifLoading && !notifError && notifItems.length === 0 && <p className="text-sm text-[#8c8c8c]">Belum ada notifikasi.</p>}
                     {!notifLoading &&
                       !notifError &&
                       notifItems.map((item, index) => {
                         const isLast = index === notifItems.length - 1;
-                        const isBeforeSeparator =
-                          firstReadIndex > 0 && index === firstReadIndex - 1;
-                        const showReadSeparator =
-                          firstReadIndex > 0 && index === firstReadIndex;
+                        const isBeforeSeparator = firstReadIndex > 0 && index === firstReadIndex - 1;
+                        const showReadSeparator = firstReadIndex > 0 && index === firstReadIndex;
                         return (
                           <div key={`${item.eventKey}-${index}`}>
-                            {showReadSeparator && (
-                              <div className="my-4 border-t-2 border-orange-400" />
-                            )}
-                            <div
-                              className={
-                                isLast || isBeforeSeparator
-                                  ? "space-y-1 pb-4"
-                                  : "space-y-1 border-b border-[#efe7e0] pb-4"
-                              }
-                            >
+                            {showReadSeparator && <div className="my-4 border-t-2 border-orange-400" />}
+                            <div className={isLast || isBeforeSeparator ? "space-y-1 pb-4" : "space-y-1 border-b border-[#efe7e0] pb-4"}>
                               <div className="flex items-center justify-between text-lg font-semibold">
-                                <span
-                                  className={item.isRead ? "opacity-70" : ""}
-                                >
-                                  {item.title}
-                                </span>
-                                <span className="text-sm font-semibold">
-                                  {item.code}
-                                </span>
+                                <span className={item.isRead ? "opacity-70" : ""}>{item.title}</span>
+                                <span className="text-sm font-semibold">{item.code}</span>
                               </div>
-                              {item.detail && (
-                                <p className="text-sm text-[#8c8c8c]">
-                                  {item.detail}
-                                </p>
-                              )}
+                              {item.detail && <p className="text-sm text-[#8c8c8c]">{item.detail}</p>}
                             </div>
                           </div>
                         );
@@ -320,33 +273,13 @@ function mapTransactionNotification(tx: Transaction): NotificationItem {
 }
 
 function resolveTransactionCode(tx: Transaction): string {
-  const raw =
-    tx.code ??
-    tx.orderNumber ??
-    tx.order_no ??
-    tx.invoiceNumber ??
-    tx.invoice_no ??
-    tx.receiptNumber ??
-    tx.receipt_no ??
-    tx.id ??
-    "-";
+  const raw = tx.code ?? tx.orderNumber ?? tx.order_no ?? tx.invoiceNumber ?? tx.invoice_no ?? tx.receiptNumber ?? tx.receipt_no ?? tx.id ?? "-";
   const value = String(raw);
   return value.startsWith("#") ? value : `#${value}`;
 }
 
 function resolveTransactionTimestamp(tx: Transaction): number | null {
-  const raw =
-    tx.createdAt ??
-    tx.created_at ??
-    tx.id ??
-    tx.code ??
-    tx.orderNumber ??
-    tx.order_no ??
-    tx.invoiceNumber ??
-    tx.invoice_no ??
-    tx.receiptNumber ??
-    tx.receipt_no ??
-    null;
+  const raw = tx.createdAt ?? tx.created_at ?? tx.id ?? tx.code ?? tx.orderNumber ?? tx.order_no ?? tx.invoiceNumber ?? tx.invoice_no ?? tx.receiptNumber ?? tx.receipt_no ?? null;
 
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw === "string") {
@@ -389,26 +322,20 @@ function loadNotificationReadState(shiftKey: string): NotificationReadState {
       saveNotificationReadState(normalizedKey, []);
       return fallback;
     }
-    const parsed = JSON.parse(raw) as
-      | Partial<NotificationReadState>
-      | { readCodes?: string[] }
-      | null;
-    if (!parsed || parsed.shiftKey !== normalizedKey) {
+    const parsed = JSON.parse(raw) as Partial<NotificationReadState> | { readCodes?: string[] } | null;
+    const parsedShiftKey = parsed && typeof parsed === "object" && "shiftKey" in parsed ? parsed.shiftKey : null;
+    if (!parsed || parsedShiftKey !== normalizedKey) {
       saveNotificationReadState(normalizedKey, []);
       return fallback;
     }
-    if (Array.isArray(parsed.readEventKeys)) {
+    if (parsed && typeof parsed === "object" && "readEventKeys" in parsed && Array.isArray(parsed.readEventKeys)) {
       return {
         shiftKey: normalizedKey,
-        readEventKeys: parsed.readEventKeys.filter(
-          (code) => typeof code === "string"
-        ),
+        readEventKeys: parsed.readEventKeys.filter((code: unknown) => typeof code === "string"),
       };
     }
-    if (Array.isArray(parsed.readCodes)) {
-      const legacy = parsed.readCodes
-        .filter((code) => typeof code === "string")
-        .map((code) => `${code}|*`);
+    if (parsed && typeof parsed === "object" && "readCodes" in parsed && Array.isArray(parsed.readCodes)) {
+      const legacy = parsed.readCodes.filter((code: unknown) => typeof code === "string").map((code) => `${code}|*`);
       saveNotificationReadState(normalizedKey, legacy);
       return {
         shiftKey: normalizedKey,
@@ -437,8 +364,7 @@ function resolveShiftKey(payload: unknown): string | null {
   if (items.length === 0) return null;
 
   const openItems = items.filter((item) => item.status === "open");
-  const candidate =
-    pickLatestByOpenedAt(openItems) ?? pickLatestByOpenedAt(items) ?? items[0];
+  const candidate = pickLatestByOpenedAt(openItems) ?? pickLatestByOpenedAt(items) ?? items[0];
   const raw = candidate?.id ?? candidate?.shiftId ?? candidate?.openedAt;
   if (!raw) return null;
   return String(raw);
@@ -449,13 +375,7 @@ function unwrapArray<T>(payload: unknown): T[] {
   if (!payload || typeof payload !== "object") return [];
 
   const record = payload as Record<string, unknown>;
-  const candidates = [
-    record.data,
-    record.items,
-    record.results,
-    record.result,
-    record.rows,
-  ];
+  const candidates = [record.data, record.items, record.results, record.result, record.rows];
 
   for (const candidate of candidates) {
     if (Array.isArray(candidate)) return candidate as T[];
@@ -492,14 +412,12 @@ function toTimestamp(value: unknown): number | null {
 }
 
 function normalizeStatus(value: string | null | undefined): string {
-  return String(value ?? "").trim().toLowerCase();
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
-function isEventRead(
-  eventKey: string,
-  readSet: Set<string>,
-  code: string
-) {
+function isEventRead(eventKey: string, readSet: Set<string>, code: string) {
   return readSet.has(eventKey) || readSet.has(`${code}|*`);
 }
 
