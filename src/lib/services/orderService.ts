@@ -166,6 +166,10 @@ export async function fetchOrders(): Promise<Order[]> {
         status: normalizeStatus(tx.status ?? null),
         tax: tx.tax ?? 0,
         discount: tx.discount ?? 0,
+        customerName: tx.customerName ?? null,
+        orderType: tx.orderType ?? null,
+        tableId: tx.tableId ?? null,
+        createdAt: tx.createdAt ?? null,
         detailItems,
       };
     });

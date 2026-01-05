@@ -97,8 +97,31 @@ export default function AddOnsModal({
     }, 0);
   }, [selectedAddonsMap, itemsById]);
 
+  const selectedByVariant = useMemo(() => {
+    const map = new Map<string, string>();
+    Object.entries(selectedAddonsMap).forEach(([id, qty]) => {
+      if (qty <= 0) return;
+      const addon = itemsById.get(id);
+      if (!addon) return;
+      map.set(addon.variantId, id);
+    });
+    return map;
+  }, [selectedAddonsMap, itemsById]);
+
   const increment = (id: string) => {
-    setSelectedAddonsMap((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+    setSelectedAddonsMap((prev) => {
+      const addon = itemsById.get(id);
+      if (!addon) return prev;
+      const next = { ...prev };
+      Object.keys(next).forEach((key) => {
+        const existing = itemsById.get(key);
+        if (existing?.variantId === addon.variantId && key !== id) {
+          delete next[key];
+        }
+      });
+      next[id] = 1;
+      return next;
+    });
   };
 
   const decrement = (id: string) => {
@@ -163,14 +186,14 @@ export default function AddOnsModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 flex-none bg-white z-10">
           <h1 className="text-xl font-semibold">
-            Add - Ons {product ? `— ${product.name}` : ""}
+            Add - Ons {product ? `- ${product.name}` : ""}
           </h1>
           <button
             onClick={onClose}
             className="text-red-500 text-lg font-semibold"
             aria-label="close"
           >
-            ✕
+            x
           </button>
         </div>
 
@@ -195,6 +218,8 @@ export default function AddOnsModal({
                 {group.items.map((a) => {
                   const idStr = String(a.id);
                   const qty = selectedAddonsMap[idStr] ?? 0;
+                  const selectedId = selectedByVariant.get(a.variantId);
+                  const isBlocked = Boolean(selectedId && selectedId !== idStr);
                   return (
                     <div
                       key={idStr}
@@ -218,13 +243,16 @@ export default function AddOnsModal({
                           className="w-8 h-8 bg-red-500 text-white rounded-md flex items-center justify-center"
                           aria-label={`decrease ${a.name}`}
                         >
-                          −
+                          -
                         </button>
                         <div className="min-w-7 text-center">{qty}</div>
                         <button
                           onClick={() => increment(idStr)}
-                          className="w-8 h-8 bg-orange-500 text-white rounded-md flex items-center justify-center"
+                          className={`w-8 h-8 rounded-md flex items-center justify-center text-white ${
+                            isBlocked ? "bg-orange-300" : "bg-orange-500"
+                          }`}
                           aria-label={`increase ${a.name}`}
+                          disabled={isBlocked}
                         >
                           +
                         </button>

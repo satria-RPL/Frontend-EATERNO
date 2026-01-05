@@ -22,5 +22,9 @@ export interface Order {
   status: OrderStatus;
   tax?: number;
   discount?: number;
+  customerName?: string | null;
+  orderType?: string | null;
+  tableId?: number | null;
+  createdAt?: string | null;
   detailItems?: OrderDetailItem[];
 }
