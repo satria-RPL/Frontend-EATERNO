@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import HistoryOrderSearchBar from "@/components/HistoryOrderSearchBar";
 
@@ -23,7 +23,8 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifError, setNotifError] = useState<string | null>(null);
   const [notifItems, setNotifItems] = useState<NotificationItem[]>([]);
-  const [notifLoaded, setNotifLoaded] = useState(false);
+  const [notifShiftKey, setNotifShiftKey] = useState<string | null>(null);
+  const prevNotifOpen = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -38,28 +39,36 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (!notifOpen || notifLoaded) return;
-
-    const loadNotifications = async () => {
-      setNotifLoading(true);
+  const loadNotifications = useCallback(
+    async (showLoading: boolean) => {
+      if (showLoading) {
+        setNotifLoading(true);
+      }
       setNotifError(null);
 
       try {
-        const res = await fetch("/api/transactions", {
-          cache: "no-store",
-          credentials: "include",
-          headers: { Accept: "application/json" },
-        });
-        const payload = (await res.json().catch(() => null)) as
+        const [transactionsRes, shiftsRes] = await Promise.all([
+          fetch("/api/transactions", {
+            cache: "no-store",
+            credentials: "include",
+            headers: { Accept: "application/json" },
+          }),
+          fetch("/api/cashier-shifts", {
+            cache: "no-store",
+            credentials: "include",
+            headers: { Accept: "application/json" },
+          }),
+        ]);
+        const payload = (await transactionsRes.json().catch(() => null)) as
           | TransactionResponse
           | null;
+        const shiftsPayload = (await shiftsRes.json().catch(() => null)) as
+          | unknown
+          | null;
 
-        if (!res.ok || !payload) {
+        if (!transactionsRes.ok || !payload) {
           setNotifError("Gagal memuat notifikasi");
           setNotifItems([]);
-          setNotifLoaded(true);
-          setNotifLoading(false);
           return;
         }
 
@@ -67,19 +76,69 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
           ? payload
           : payload.data ?? [];
 
-        const mapped = transactions.slice(0, 5).map(mapTransactionNotification);
-        setNotifItems(mapped);
-        setNotifLoaded(true);
+        const nextShiftKey = resolveShiftKey(shiftsPayload) ?? "default";
+        const readState = loadNotificationReadState(nextShiftKey);
+        const readSet = new Set(readState.readEventKeys);
+        const mapped = transactions.map(mapTransactionNotification);
+        const withRead = mapped.map((item) => ({
+          ...item,
+          isRead: isEventRead(item.eventKey, readSet, item.code),
+        }));
+        const newestFive = [...withRead]
+          .sort((a, b) => compareTimestampDesc(a.timestamp, b.timestamp))
+          .slice(0, 5);
+        const sorted = newestFive.sort((a, b) => {
+          const readDiff = Number(a.isRead) - Number(b.isRead);
+          if (readDiff !== 0) return readDiff;
+          return compareTimestampDesc(a.timestamp, b.timestamp);
+        });
+        setNotifShiftKey(readState.shiftKey);
+        setNotifItems(sorted);
       } catch {
         setNotifError("Gagal memuat notifikasi");
         setNotifItems([]);
       } finally {
-        setNotifLoading(false);
+        if (showLoading) {
+          setNotifLoading(false);
+        }
       }
-    };
+    },
+    []
+  );
 
-    loadNotifications();
-  }, [notifOpen, notifLoaded]);
+  useEffect(() => {
+    if (notifOpen) {
+      loadNotifications(true);
+    }
+  }, [notifOpen, loadNotifications]);
+
+  useEffect(() => {
+    loadNotifications(false);
+    const interval = setInterval(() => {
+      loadNotifications(false);
+    }, 30_000);
+
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    if (prevNotifOpen.current && !notifOpen) {
+      if (notifShiftKey && notifItems.length > 0) {
+        const readState = loadNotificationReadState(notifShiftKey);
+        const nextRead = new Set(readState.readEventKeys);
+        notifItems.forEach((item) => nextRead.add(item.eventKey));
+        saveNotificationReadState(notifShiftKey, Array.from(nextRead));
+        setNotifItems((current) =>
+          current.map((item) => ({ ...item, isRead: true }))
+        );
+      }
+    }
+
+    prevNotifOpen.current = notifOpen;
+  }, [notifOpen, notifItems, notifShiftKey]);
+
+  const hasUnread = notifItems.some((item) => !item.isRead);
+  const firstReadIndex = notifItems.findIndex((item) => item.isRead);
 
   return (
     <nav className="fixed top-0 z-50 w-full bg-(--color-bg-primary) text-(--color-text-body) shadow-sm">
@@ -105,13 +164,16 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
                 aria-expanded={notifOpen}
               >
                 <NotificationIcon />
+                {hasUnread && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" />
+                )}
               </button>
 
               {notifOpen && (
                 <div className="absolute right-0 top-full z-50 mt-4 w-[460px] rounded-2xl border border-[#e6e1dc] bg-white p-5 shadow-xl">
                   <div className="absolute right-8 -top-2 h-4 w-4 rotate-45 border-l border-t border-[#e6e1dc] bg-white"></div>
                   <p className="mb-4 text-xs text-[#8c8c8c]">Notification</p>
-                  <div className="space-y-4 text-[15px] text-[#1c1c1c]">
+                  <div className="space-y-4 pt-2 text-[15px] text-[#1c1c1c]">
                     {notifLoading && (
                       <p className="text-sm text-[#8c8c8c]">
                         Memuat notifikasi...
@@ -131,26 +193,38 @@ export default function Navbar({ userName, role, avatarUrl = "/img/profil.png", 
                       !notifError &&
                       notifItems.map((item, index) => {
                         const isLast = index === notifItems.length - 1;
+                        const isBeforeSeparator =
+                          firstReadIndex > 0 && index === firstReadIndex - 1;
+                        const showReadSeparator =
+                          firstReadIndex > 0 && index === firstReadIndex;
                         return (
-                          <div
-                            key={`${item.code}-${index}`}
-                            className={
-                              isLast
-                                ? "space-y-1"
-                                : "space-y-1 border-b border-[#efe7e0] pb-4"
-                            }
-                          >
-                            <div className="flex items-center justify-between text-lg font-semibold">
-                              <span>{item.title}</span>
-                              <span className="text-sm font-semibold">
-                                {item.code}
-                              </span>
-                            </div>
-                            {item.detail && (
-                              <p className="text-sm text-[#8c8c8c]">
-                                {item.detail}
-                              </p>
+                          <div key={`${item.eventKey}-${index}`}>
+                            {showReadSeparator && (
+                              <div className="my-4 border-t-2 border-orange-400" />
                             )}
+                            <div
+                              className={
+                                isLast || isBeforeSeparator
+                                  ? "space-y-1 pb-4"
+                                  : "space-y-1 border-b border-[#efe7e0] pb-4"
+                              }
+                            >
+                              <div className="flex items-center justify-between text-lg font-semibold">
+                                <span
+                                  className={item.isRead ? "opacity-70" : ""}
+                                >
+                                  {item.title}
+                                </span>
+                                <span className="text-sm font-semibold">
+                                  {item.code}
+                                </span>
+                              </div>
+                              {item.detail && (
+                                <p className="text-sm text-[#8c8c8c]">
+                                  {item.detail}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -198,6 +272,8 @@ type Transaction = {
   receiptNumber?: string | number | null;
   receipt_no?: string | number | null;
   status?: string | null;
+  createdAt?: string | null;
+  created_at?: string | null;
 };
 
 type TransactionResponse = Transaction[] | { data?: Transaction[] };
@@ -206,27 +282,40 @@ type NotificationItem = {
   title: string;
   code: string;
   detail?: string;
+  isRead: boolean;
+  eventKey: string;
+  timestamp: number | null;
 };
 
 function mapTransactionNotification(tx: Transaction): NotificationItem {
   const code = resolveTransactionCode(tx);
-  const status = (tx.status ?? "").toLowerCase();
+  const status = normalizeStatus(tx.status);
+  const timestamp = resolveTransactionTimestamp(tx);
   if (status === "paid" || status === "done" || status === "selesai") {
     return {
       title: "Order Berhasil",
       code,
       detail: `Order Dengan ID Transaksi ${code} Berhasil`,
+      eventKey: `${code}|${status}`,
+      isRead: false,
+      timestamp,
     };
   }
   if (status === "cancel" || status === "canceled" || status === "cancelled") {
     return {
       title: "Order Dicancel",
       code,
+      eventKey: `${code}|${status}`,
+      isRead: false,
+      timestamp,
     };
   }
   return {
     title: "Order Dibuat",
     code,
+    eventKey: `${code}|${status || "created"}`,
+    isRead: false,
+    timestamp,
   };
 }
 
@@ -243,4 +332,180 @@ function resolveTransactionCode(tx: Transaction): string {
     "-";
   const value = String(raw);
   return value.startsWith("#") ? value : `#${value}`;
+}
+
+function resolveTransactionTimestamp(tx: Transaction): number | null {
+  const raw =
+    tx.createdAt ??
+    tx.created_at ??
+    tx.id ??
+    tx.code ??
+    tx.orderNumber ??
+    tx.order_no ??
+    tx.invoiceNumber ??
+    tx.invoice_no ??
+    tx.receiptNumber ??
+    tx.receipt_no ??
+    null;
+
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) return numeric;
+    const parsed = Date.parse(trimmed);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  return null;
+}
+
+type CashierShiftApiItem = {
+  id?: number | string;
+  shiftId?: number | string;
+  openedAt?: string;
+  status?: string;
+};
+
+type NotificationReadState = {
+  shiftKey: string;
+  readEventKeys: string[];
+};
+
+const NOTIF_STORAGE_KEY = "eaterno-notification-read";
+
+function loadNotificationReadState(shiftKey: string): NotificationReadState {
+  const normalizedKey = shiftKey || "default";
+  const fallback: NotificationReadState = {
+    shiftKey: normalizedKey,
+    readEventKeys: [],
+  };
+
+  if (typeof window === "undefined") return fallback;
+
+  try {
+    const raw = window.localStorage.getItem(NOTIF_STORAGE_KEY);
+    if (!raw) {
+      saveNotificationReadState(normalizedKey, []);
+      return fallback;
+    }
+    const parsed = JSON.parse(raw) as
+      | Partial<NotificationReadState>
+      | { readCodes?: string[] }
+      | null;
+    if (!parsed || parsed.shiftKey !== normalizedKey) {
+      saveNotificationReadState(normalizedKey, []);
+      return fallback;
+    }
+    if (Array.isArray(parsed.readEventKeys)) {
+      return {
+        shiftKey: normalizedKey,
+        readEventKeys: parsed.readEventKeys.filter(
+          (code) => typeof code === "string"
+        ),
+      };
+    }
+    if (Array.isArray(parsed.readCodes)) {
+      const legacy = parsed.readCodes
+        .filter((code) => typeof code === "string")
+        .map((code) => `${code}|*`);
+      saveNotificationReadState(normalizedKey, legacy);
+      return {
+        shiftKey: normalizedKey,
+        readEventKeys: legacy,
+      };
+    }
+    return fallback;
+  } catch {
+    saveNotificationReadState(normalizedKey, []);
+    return fallback;
+  }
+}
+
+function saveNotificationReadState(shiftKey: string, readEventKeys: string[]) {
+  if (typeof window === "undefined") return;
+  const capped = readEventKeys.slice(-10);
+  const payload: NotificationReadState = {
+    shiftKey,
+    readEventKeys: capped,
+  };
+  window.localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function resolveShiftKey(payload: unknown): string | null {
+  const items = unwrapArray<CashierShiftApiItem>(payload);
+  if (items.length === 0) return null;
+
+  const openItems = items.filter((item) => item.status === "open");
+  const candidate =
+    pickLatestByOpenedAt(openItems) ?? pickLatestByOpenedAt(items) ?? items[0];
+  const raw = candidate?.id ?? candidate?.shiftId ?? candidate?.openedAt;
+  if (!raw) return null;
+  return String(raw);
+}
+
+function unwrapArray<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (!payload || typeof payload !== "object") return [];
+
+  const record = payload as Record<string, unknown>;
+  const candidates = [
+    record.data,
+    record.items,
+    record.results,
+    record.result,
+    record.rows,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate as T[];
+    if (candidate && typeof candidate === "object") {
+      const nested = candidate as Record<string, unknown>;
+      if (Array.isArray(nested.data)) return nested.data as T[];
+    }
+  }
+
+  return [];
+}
+
+function pickLatestByOpenedAt(items: CashierShiftApiItem[]) {
+  let selected: CashierShiftApiItem | null = null;
+  let bestTimestamp = Number.NEGATIVE_INFINITY;
+
+  items.forEach((item) => {
+    const timestamp = toTimestamp(item.openedAt);
+    if (timestamp == null) return;
+    if (timestamp > bestTimestamp) {
+      bestTimestamp = timestamp;
+      selected = item;
+    }
+  });
+
+  return selected;
+}
+
+function toTimestamp(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function normalizeStatus(value: string | null | undefined): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isEventRead(
+  eventKey: string,
+  readSet: Set<string>,
+  code: string
+) {
+  return readSet.has(eventKey) || readSet.has(`${code}|*`);
+}
+
+function compareTimestampDesc(a: number | null, b: number | null) {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return b - a;
 }
