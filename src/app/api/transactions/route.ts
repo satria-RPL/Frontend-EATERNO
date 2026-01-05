@@ -21,9 +21,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const payload = (await request.json().catch(() => null)) as
-    | Record<string, unknown>
-    | null;
+  const parsed = await request.json().catch(() => ({}));
+  const payload =
+    parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  console.log("payload:", JSON.stringify(payload, null, 2));
+
   const authPayload = await getAuthCookiePayload();
   const cashierId =
     toNumber(payload?.cashierId) ?? toNumber(authPayload?.userId) ?? null;
@@ -31,11 +35,22 @@ export async function POST(request: Request) {
     typeof payload?.createdAt === "string" && payload.createdAt.trim()
       ? payload.createdAt
       : new Date().toISOString();
+  const normalizedItems = normalizeTransactionItems(payload?.items);
 
   const enrichedPayload = {
     ...payload,
     cashierId,
     createdAt,
+    cashier_id: cashierId,
+    place_id: payload?.placeId ?? payload?.place_id ?? null,
+    table_id: payload?.tableId ?? payload?.table_id ?? null,
+    order_type: payload?.orderType ?? payload?.order_type ?? null,
+    customer_name: payload?.customerName ?? payload?.customer_name ?? null,
+    total_items: payload?.totalItems ?? payload?.total_items ?? null,
+    payment_method_id:
+      payload?.paymentMethodId ?? payload?.payment_method_id ?? null,
+    created_at: createdAt,
+    items: normalizedItems.length > 0 ? normalizedItems : payload?.items,
   };
 
   const result = await apiRequest("/api/transactions", {
@@ -45,6 +60,11 @@ export async function POST(request: Request) {
   });
 
   if (!result.ok) {
+    console.error("POST /api/transactions error:", {
+      status: result.status,
+      error: result.error,
+      data: result.data ?? null,
+    });
     return NextResponse.json(
       {
         message: result.error,
@@ -66,4 +86,54 @@ function toNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+function normalizeTransactionItems(items: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((item) => (isRecord(item) ? item : null))
+    .filter((item): item is Record<string, unknown> => item != null)
+    .map((item) => {
+      const menuId = item.menuId ?? item.menu_id ?? null;
+      const qty = item.qty ?? item.quantity ?? null;
+      const price = item.price ?? item.unitPrice ?? item.unit_price ?? null;
+      const variants = normalizeVariants(item.variants);
+
+      return {
+        ...item,
+        menuId,
+        menu_id: menuId,
+        qty,
+        price,
+        variants,
+      };
+    });
+}
+
+function normalizeVariants(variants: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(variants)) return [];
+
+  return variants
+    .map((variant) => (isRecord(variant) ? variant : null))
+    .filter((variant): variant is Record<string, unknown> => variant != null)
+    .map((variant) => {
+      const menuVariantId =
+        variant.menuVariantId ?? variant.menu_variant_id ?? variant.id ?? null;
+      const extraPrice = variant.extraPrice ?? variant.extra_price ?? null;
+      const qty = variant.qty ?? variant.quantity ?? null;
+
+      return {
+        ...variant,
+        menuVariantId,
+        menu_variant_id: menuVariantId,
+        extraPrice,
+        extra_price: extraPrice,
+        qty,
+      };
+    });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
 }
