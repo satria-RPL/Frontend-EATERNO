@@ -44,10 +44,10 @@ export function ProductsHeader({
                       : "border-gray-200 text-gray-400 bg-white"
                   }`}
               >
-                <span>{filter.label}</span>
+                <span className="rounded-full py-1">{filter.label}</span>
 
                 <span
-                  className={`rounded-full px-2 text-white text-xs
+                  className={`rounded-full px-1.5 py-0.5 text-white text-xs flex text-center
                     ${isActive ? "bg-orange-500" : "bg-orange-300"}`}
                 >
                   {count}
