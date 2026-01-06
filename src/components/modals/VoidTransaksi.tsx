@@ -46,7 +46,7 @@ export default function VoidModal({
       <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between border-b pb-3">
           <h2 className="text-lg font-semibold">
-            Void Transaksi {order.id ? `#${order.id}` : ""}
+            Void Transaksi {order.id}
           </h2>
           <button className="text-xl text-red-500" onClick={onClose} type="button">
             ×

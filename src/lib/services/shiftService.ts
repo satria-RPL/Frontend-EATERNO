@@ -35,16 +35,16 @@ async function fetchApi<T = unknown>(
   }
 }
 
-export async function fetchCashierShifts() {
-  return fetchApi("/api/cashier-shifts");
+export async function fetchCashierShifts(options: RequestInit = {}) {
+  return fetchApi("/api/cashier-shifts", options);
 }
 
 export async function fetchShifts() {
   return fetchApi("/api/shifts");
 }
 
-export async function fetchStations() {
-  return fetchApi("/api/stations");
+export async function fetchStations(options: RequestInit = {}) {
+  return fetchApi("/api/stations", options);
 }
 
 export async function createCashierShift(payload: {
@@ -53,7 +53,7 @@ export async function createCashierShift(payload: {
   placeId: number;
   openingBalance: number;
 }) {
-  return fetchApi("/api/cashier-shifts", {
+  return fetchApi("/api/cashier-shifts/open", {
     method: "POST",
     body: JSON.stringify(payload),
   });

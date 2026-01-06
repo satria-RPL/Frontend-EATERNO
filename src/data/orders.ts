@@ -1,22 +1,12 @@
+import type { OrderFilter, OrderSummary } from "@/domain/orders/types";
+
+export { type OrderFilter, type OrderSummary };
+
 export const FILTERS = [
   { id: "all", label: "All", value: "all" },
   { id: "dinein", label: "Dine In", value: "dinein" },
   { id: "takeaway", label: "Take Away", value: "takeaway" },
-] as const;
-
-export type OrderFilter = (typeof FILTERS)[number]["value"];
-
-export type OrderSummary = {
-  id: number;
-  type: Exclude<OrderFilter, "all">;
-  title: string;
-  table: string;
-  customer?: string;
-  itemsCount: number;
-  itemsPreview: string[];
-  itemsMoreCount?: number;
-  timeAgo: string;
-};
+] as const satisfies Array<{ id: string; label: string; value: OrderFilter }>;
 
 export const ORDERS: OrderSummary[] = [
   {

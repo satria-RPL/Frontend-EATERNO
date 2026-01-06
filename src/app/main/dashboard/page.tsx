@@ -12,8 +12,8 @@ export default async function DashboardPage() {
   const dashboardData = await loadDashboardData();
 
   return (
-    <div className="p-4 space-y-6 min-h-screen">
-      <h1 className="text-2xl font-bold">Manager Dashboard</h1>
+    <div className="p-4 space-y-6 min-h-screen ">
+      <h1 className="text-3xl font-medium">Manager Dashboard</h1>
 
       {/* WRAPPER */}
       <div className="flex flex-col gap-y-6">

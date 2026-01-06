@@ -16,11 +16,13 @@ export default function DaySelling({ data, series }: DaySellingProps) {
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold mb-4">Day Selling</h2>
-      {!hasData && (
-        <div className="text-sm text-gray-500 mb-3">Belum ada data.</div>
-      )}
-      <DaySellingAreaChart data={data} series={series} />
+      <div className="p-2">
+        <h2 className="text-2xl font-medium">Day Selling</h2>
+        {!hasData && (
+          <div className="text-sm text-gray-500 mb-3">Belum ada data.</div>
+        )}
+        <DaySellingAreaChart data={data} series={series} />
+      </div>
     </Card>
   );
 }

@@ -4,10 +4,31 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useCartStore } from "@/data/cart";
-import { createTransaction } from "@/lib/services/transactionService";
-import { calculateRounding } from "@/lib/rounding";
+import { type Coupon } from "@/domain/checkout/coupons";
+import { createCouponsLoader } from "@/domain/checkout/couponsLoader";
+import { calculateTotals } from "@/domain/checkout/pricing";
+import {
+  buildTransactionItems,
+  resolveOrderType,
+} from "@/domain/checkout/transactions";
+import { createOrderPrintResolver } from "@/domain/orders/orderPrint";
+import {
+  persistCheckoutState,
+  readCheckoutState,
+  clearCheckoutState,
+} from "@/lib/checkout/storage";
 import { getCoupons } from "@/lib/services/couponService";
+import { fetchOrders } from "@/lib/services/orderService";
+import { createTransaction } from "@/lib/services/transactionService";
+import {
+  buildEscPosPayload,
+  getSerialApi,
+  openSerialPort,
+  writeSerial,
+  type SerialPortLike,
+} from "@/lib/printing/escpos";
 import { Button } from "@/components/ui/Button";
+import Loading from "@/components/ui/Loading";
 import { Wallet, QrCode, Landmark } from "lucide-react";
 
 type PaymentMethod = "Qris" | "Cash" | "Bank";
@@ -26,12 +47,20 @@ function formatCashInput(value: string) {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-export default function PaymentPage() {
+type PaymentPageProps = {
+  cashierName?: string;
+};
+
+export default function PaymentPage({ cashierName }: PaymentPageProps) {
   const searchParams = useSearchParams();
   const [method, setMethod] = useState<PaymentMethod>("Qris");
   const [cashInput, setCashInput] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [printerPort, setPrinterPort] = useState<SerialPortLike | null>(null);
+  const [printerConnecting, setPrinterConnecting] = useState(false);
+  const [baudRate, setBaudRate] = useState(9600);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [selectedCoupons, setSelectedCoupons] = useState<string[]>([]);
   const [checkoutLoaded, setCheckoutLoaded] = useState(false);
@@ -39,42 +68,40 @@ export default function PaymentPage() {
   const clearCart = useCartStore((s) => s.clearCart);
   const getSubtotal = useCartStore((s) => s.getSubtotal);
   const router = useRouter();
+  const { loadCoupons } = useMemo(
+    () => createCouponsLoader({ getCoupons }),
+    []
+  );
+  const { resolveOrderForPrint } = useMemo(
+    () => createOrderPrintResolver({ fetchOrders }),
+    []
+  );
+  const listPath = useMemo(() => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.delete("method");
+    const query = params.toString();
+    return query ? `/main/products/list?${query}` : "/main/products/list";
+  }, [searchParams]);
 
   const subtotal = useMemo(() => getSubtotal(), [cart, getSubtotal]);
   const itemsCount = useMemo(
     () => cart.reduce((sum, item) => sum + (item.qty ?? 0), 0),
     [cart]
   );
-  const taxAmount = useMemo(() => Math.round((subtotal * 10) / 100), [subtotal]);
-  const discountAmount = useMemo(() => {
-    let totalDiscount = 0;
-    const activeCoupons = coupons.filter((c) =>
-      selectedCoupons.includes(c.name)
-    );
-    for (const coupon of activeCoupons) {
-      for (const rule of coupon.rules ?? []) {
-        if (rule.type === "percentage_discount") {
-          totalDiscount += (subtotal * rule.value) / 100;
-        }
-        if (rule.type === "fixed_discount") {
-          totalDiscount += rule.value;
-        }
-      }
-    }
-    return Math.min(totalDiscount, subtotal);
-  }, [coupons, selectedCoupons, subtotal]);
-  const baseTotal = useMemo(
-    () => subtotal + taxAmount - discountAmount,
-    [subtotal, taxAmount, discountAmount]
+  const totals = useMemo(
+    () =>
+      calculateTotals({
+        subtotal,
+        taxPercent: 10,
+        coupons,
+        selectedCoupons,
+      }),
+    [subtotal, coupons, selectedCoupons]
   );
-  const roundingAmount = useMemo(() => {
-    const { rounding } = calculateRounding(baseTotal);
-    return rounding;
-  }, [baseTotal]);
-  const totalAmount = useMemo(() => {
-    const { roundedTotal } = calculateRounding(baseTotal);
-    return roundedTotal;
-  }, [baseTotal]);
+  const taxAmount = totals.tax;
+  const discountAmount = totals.discount;
+  const roundingAmount = totals.rounding;
+  const totalAmount = totals.total;
 
   useEffect(() => {
     const paramMethod = searchParams?.get("method");
@@ -89,7 +116,7 @@ export default function PaymentPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (checkoutLoaded) return;
-    const saved = getCheckoutState();
+    const saved = readCheckoutState();
     if (!searchParams?.get("method") && saved.paymentMethod) {
       const normalized = saved.paymentMethod.toLowerCase();
       if (normalized === "cash") setMethod("Cash");
@@ -107,23 +134,10 @@ export default function PaymentPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getCoupons()
-      .then(({ promotions, rules }) => {
+    loadCoupons()
+      .then((mapped) => {
         if (cancelled) return;
-        const mappedCoupons = promotions.map((promo) => ({
-          id: promo.id,
-          name: promo.name,
-          placeId: promo.placeId,
-          startAt: promo.startAt,
-          endAt: promo.endAt,
-          rules: rules
-            .filter((r) => r.promotionId === promo.id)
-            .map((r) => ({
-              type: r.ruleType as "percentage_discount" | "fixed_discount",
-              value: Number(r.value),
-            })),
-        }));
-        setCoupons(mappedCoupons);
+        setCoupons(mapped);
       })
       .catch(() => {
         if (!cancelled) setCoupons([]);
@@ -131,7 +145,7 @@ export default function PaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadCoupons]);
 
   useEffect(() => {
     persistCheckoutState({
@@ -139,6 +153,25 @@ export default function PaymentPage() {
       cashInput,
     });
   }, [method, cashInput]);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("eaterno-printer-baud");
+    if (!stored) return;
+    const parsed = Number(stored);
+    if (Number.isFinite(parsed)) setBaudRate(parsed);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("eaterno-printer-baud", String(baudRate));
+  }, [baudRate]);
+
+  useEffect(() => {
+    const port = printerPort;
+    return () => {
+      if (!port) return;
+      port.close().catch(() => {});
+    };
+  }, [printerPort]);
 
   const cashNumber = Number(cashInput.replace(/\D/g, ""));
   const change = cashNumber > totalAmount ? cashNumber - totalAmount : 0;
@@ -153,33 +186,20 @@ export default function PaymentPage() {
 
   const paymentMethodId = method === "Cash" ? 1 : method === "Qris" ? 2 : 3;
 
-  const buildTransactionItems = () =>
-    cart.map((item) => ({
-      menuId: item.productId,
-      qty: item.qty ?? 0,
-      price: item.price ?? 0,
-      variants: (item.addons ?? []).map((addon) => ({
-        menuVariantId: addon.variantId ?? null,
-        extraPrice: addon.price ?? 0,
-        qty: addon.qty ?? 0,
-      })),
-    }));
-
   const handleProcessOrder = async () => {
     if (cart.length === 0 || isSubmitting) return;
     setIsSubmitting(true);
     setSubmitError(null);
+    setPrintError(null);
 
-    const savedState = getCheckoutState();
+    const savedState = readCheckoutState();
     const storedPlaceId = resolveStoredPlaceId();
     const resolvedTableId = Number.isFinite(tableId)
       ? tableId
       : Number.isFinite(savedState.tableId)
       ? savedState.tableId ?? null
       : null;
-    const resolvedPlaceId = Number.isFinite(placeId)
-      ? placeId
-      : storedPlaceId;
+    const resolvedPlaceId = Number.isFinite(placeId) ? placeId : storedPlaceId;
     const resolvedCustomerName =
       customerName ?? savedState.customerName ?? null;
     const resolvedOrderType = resolveOrderType(
@@ -197,7 +217,7 @@ export default function PaymentPage() {
       tax: taxAmount,
       discount: discountAmount,
       paymentMethodId,
-      items: buildTransactionItems(),
+      items: buildTransactionItems(cart),
     });
 
     if (!result.ok) {
@@ -206,65 +226,173 @@ export default function PaymentPage() {
       return;
     }
 
-    persistTransactionCode(result.data);
+    const transactionCode = persistTransactionCode(result.data);
     clearCart();
     clearCheckoutState();
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    params.delete("method");
-    const query = params.toString();
-    router.push(query ? `/main/products/list?${query}` : "/main/products/list");
+
+    if (!printerPort) {
+      setIsSubmitting(false);
+      router.push(listPath);
+      return;
+    }
+
+    const orderForPrint = await resolveOrderForPrint(transactionCode);
+    if (!orderForPrint) {
+      setPrintError(
+        "Struk belum siap dicetak. Coba cetak ulang dari History Order."
+      );
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await openSerialPort(printerPort, baudRate);
+      const payload = buildEscPosPayload(orderForPrint, {
+        storeName: "Eaterno",
+        cashierName: cashierName || undefined,
+      });
+      await writeSerial(printerPort, payload);
+      setIsSubmitting(false);
+      router.push(listPath);
+    } catch {
+      setPrintError(
+        "Gagal mencetak struk. Coba ulang dari History Order."
+      );
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <main>
-      <div className="p-4">
-        {/* Header Tabs */}
-        <div className="flex justify-between items-center mb-3">
-          <span className="font-medium">Payment via {method}</span>
+    <>
+      {isSubmitting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+          <Loading variant="print-receipt" />
         </div>
-
-        <div className="flex gap-2 mb-4 text-xs">
-          <TabButton label="QRIS" icon={<QrCode size={16} />} active={method === "Qris"} onClick={() => setMethod("Qris")} />
-          <TabButton label="Cash" icon={<Wallet size={16} />} active={method === "Cash"} onClick={() => setMethod("Cash")} />
-          <TabButton label="Bank" icon={<Landmark size={16} />} active={method === "Bank"} onClick={() => setMethod("Bank")} />
-        </div>
-
-        {/* Card Content */}
+      )}
+      <main>
         <div className="p-4">
-          {method === "Qris" && (
-            <QrisView total={totalAmount} rounding={roundingAmount} />
+          {/* Header Tabs */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <span className="font-medium">Payment via {method}</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span
+                className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                  printerPort
+                    ? "bg-green-100 text-green-700"
+                    : "bg-orange-100 text-orange-700"
+                }`}
+              >
+                {printerPort ? "Printer terhubung" : "Printer belum terhubung"}
+              </span>
+              <select
+                className="rounded-md border border-orange-200 bg-white px-2 py-1 text-[11px]"
+                value={baudRate}
+                onChange={(event) =>
+                  setBaudRate(Number(event.target.value))
+                }
+              >
+                {[9600, 19200, 38400, 57600, 115200].map((rate) => (
+                  <option key={rate} value={rate}>
+                    Baud {rate}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-full"
+                disabled={printerConnecting}
+                onClick={async () => {
+                  setPrintError(null);
+                  const serialApi = getSerialApi();
+                  if (!serialApi) {
+                    setPrintError(
+                      "Browser ini tidak mendukung Web Serial."
+                    );
+                    return;
+                  }
+                  setPrinterConnecting(true);
+                  try {
+                    const port = await serialApi.requestPort();
+                    await openSerialPort(port, baudRate);
+                    setPrinterPort(port);
+                  } catch {
+                    setPrintError("Gagal menghubungkan printer.");
+                  } finally {
+                    setPrinterConnecting(false);
+                  }
+                }}
+              >
+                {printerConnecting ? "Menghubungkan..." : "Connect Printer"}
+              </Button>
+              {printerPort && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={async () => {
+                    try {
+                      await printerPort.close();
+                    } catch {}
+                    setPrinterPort(null);
+                  }}
+                >
+                  Disconnect
+                </Button>
+              )}
+            </div>
+          </div>
+          {printError && (
+            <p className="mb-3 text-sm text-red-500">{printError}</p>
           )}
-          {method === "Cash" && (
-            <CashView
-              total={totalAmount}
-              cashInput={cashInput}
-              setCashInput={setCashInput}
-              change={change}
-              onSubmit={handleProcessOrder}
-              submitting={isSubmitting}
-              errorMessage={submitError}
-              canProcess={canProcessCash}
-            />
-          )}
-          {method === "Bank" && (
-            <BankWaitingView total={totalAmount} rounding={roundingAmount} />
-          )}
-        </div>
-      </div>
-    </main>
-  );
-}
 
-function resolveOrderType(
-  value: string | null,
-  tableId: number | null
-) {
-  if (value) {
-    const normalized = value.toLowerCase().replace(/[\s_-]/g, "");
-    if (normalized === "dinein") return "dine_in";
-    if (normalized === "takeaway" || normalized === "takeout") return "takeaway";
-  }
-  return tableId ? "dine_in" : "takeaway";
+          <div className="flex gap-2 mb-4 text-xs">
+            <TabButton
+              label="QRIS"
+              icon={<QrCode size={16} />}
+              active={method === "Qris"}
+              onClick={() => setMethod("Qris")}
+            />
+            <TabButton
+              label="Cash"
+              icon={<Wallet size={16} />}
+              active={method === "Cash"}
+              onClick={() => setMethod("Cash")}
+            />
+            <TabButton
+              label="Bank"
+              icon={<Landmark size={16} />}
+              active={method === "Bank"}
+              onClick={() => setMethod("Bank")}
+            />
+          </div>
+
+          {/* Card Content */}
+          <div className="p-4">
+            {method === "Qris" && (
+              <QrisView total={totalAmount} rounding={roundingAmount} />
+            )}
+            {method === "Cash" && (
+              <CashView
+                total={totalAmount}
+                cashInput={cashInput}
+                setCashInput={setCashInput}
+                change={change}
+                onSubmit={handleProcessOrder}
+                submitting={isSubmitting}
+                errorMessage={submitError}
+                canProcess={canProcessCash}
+              />
+            )}
+            {method === "Bank" && (
+              <BankWaitingView total={totalAmount} rounding={roundingAmount} />
+            )}
+          </div>
+        </div>
+      </main>
+    </>
+  );
 }
 
 function persistTransactionCode(payload: unknown) {
@@ -290,14 +418,30 @@ function persistTransactionCode(payload: unknown) {
   const code = String(rawCode).replace(/^#/, "");
   if (!code) return;
   window.localStorage.setItem("lastTransactionCode", code);
+  return code;
 }
 
-function TabButton({ label, active, onClick, icon }: { label: string; active: boolean; onClick: () => void; icon: React.ReactNode }) {
+
+function TabButton({
+  label,
+  active,
+  onClick,
+  icon,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+}) {
   return (
     <button
       onClick={onClick}
       className={`py-2 px-5 rounded-md border flex items-center gap-2 transition font-semibold
-      ${active ? "bg-orange-500 text-white border-orange-500" : "bg-white border-orange-300 text-orange-500"}`}
+      ${
+        active
+          ? "bg-orange-500 text-white border-orange-500"
+          : "bg-white border-orange-300 text-orange-500"
+      }`}
     >
       {icon}
       {label}
@@ -364,7 +508,9 @@ function CashView({
     <div className="flex flex-col gap-3">
       <div className="flex gap-3 font-medium">
         <span>Total</span>
-        <span className="font-semibold text-[#ff7a1a]">{formatRupiah(total)}</span>
+        <span className="font-semibold text-[#ff7a1a]">
+          {formatRupiah(total)}
+        </span>
       </div>
 
       <div className="bg-neutral-50 py-2 px-8 rounded-2xl flex flex-col gap-y-4 my-5">
@@ -374,9 +520,7 @@ function CashView({
             type="text"
             inputMode="numeric"
             value={formatCashInput(cashInput)}
-            onChange={(e) =>
-              setCashInput(e.target.value.replace(/[^\d]/g, ""))
-            }
+            onChange={(e) => setCashInput(e.target.value.replace(/[^\d]/g, ""))}
             placeholder="Rp"
             className="w-full rounded-md border-2 border-gray-200 px-2 py-1 focus:outline-none focus:border-orange-500"
           />
@@ -384,7 +528,9 @@ function CashView({
 
         <div className="flex justify-between items-center text-orange-500">
           <span>Return</span>
-          <span className="text-orange-500">{change > 0 ? formatRupiah(change) : "-"}</span>
+          <span className="text-orange-500">
+            {change > 0 ? formatRupiah(change) : "-"}
+          </span>
         </div>
       </div>
 
@@ -415,7 +561,9 @@ function BankWaitingView({
     <div className="flex flex-col items-center gap-4 py-4">
       <div className="flex gap-2 w-full font-medium">
         <span>Total</span>
-        <span className="font-medium text-orange-500">{formatRupiah(total)}</span>
+        <span className="font-medium text-orange-500">
+          {formatRupiah(total)}
+        </span>
       </div>
       <div className="flex gap-2 w-full text-xs text-[#8c8c8c]">
         <span>Rounding</span>
@@ -429,37 +577,6 @@ function BankWaitingView({
   );
 }
 
-function persistCheckoutState(next: Partial<CheckoutState>) {
-  if (typeof window === "undefined") return;
-  const saved = window.localStorage.getItem("eaterno-checkout");
-  let current: CheckoutState = {};
-  if (saved) {
-    try {
-      current = JSON.parse(saved) as CheckoutState;
-    } catch {
-      current = {};
-    }
-  }
-  const merged = { ...current, ...next };
-  window.localStorage.setItem("eaterno-checkout", JSON.stringify(merged));
-}
-
-function getCheckoutState(): CheckoutState {
-  if (typeof window === "undefined") return {};
-  const saved = window.localStorage.getItem("eaterno-checkout");
-  if (!saved) return {};
-  try {
-    return JSON.parse(saved) as CheckoutState;
-  } catch {
-    return {};
-  }
-}
-
-function clearCheckoutState() {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem("eaterno-checkout");
-}
-
 function resolveStoredPlaceId(): number | null {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem("eaterno-place-id");
@@ -467,26 +584,3 @@ function resolveStoredPlaceId(): number | null {
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : null;
 }
-
-type CheckoutState = {
-  customerName?: string;
-  orderType?: "takeaway" | "dinein";
-  tableId?: number | null;
-  paymentMethod?: string;
-  selectedCoupons?: string[];
-  cashInput?: string;
-};
-
-type PromotionRule = {
-  type: "percentage_discount" | "fixed_discount";
-  value: number;
-};
-
-type Coupon = {
-  id: number;
-  name: string;
-  placeId: number;
-  startAt: string;
-  endAt: string;
-  rules: PromotionRule[];
-};

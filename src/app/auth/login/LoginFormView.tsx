@@ -88,7 +88,7 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
             </div>
 
             <div className="mt-1 text-right font-medium">
-              <button type="button" className="text-orange-400">
+              <button type="button" className="text-orange-400 outline-none cursor-pointer">
                 Forgot PIN?
               </button>
             </div>
@@ -107,7 +107,7 @@ function SubmitButton() {
   return (
     <button
       type="submit"
-      className="w-full bg-[#f26522] text-white font-semibold py-2.5 rounded-md hover:bg-[#e45713] transition disabled:cursor-not-allowed disabled:opacity-60"
+      className="w-full bg-primary text-white font-semibold py-2.5 rounded-md hover:bg-[#e45713] transition disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer outline-none"
       disabled={pending}
     >
       {pending ? "Memproses..." : "Login"}

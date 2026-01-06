@@ -51,13 +51,21 @@ export default function Pagination({
         <button
           disabled={!canPrev}
           onClick={() => setPage(page - 1)}
-          className={`rounded-lg px-3 py-1.5 font-semibold ${
-            canPrev
-              ? "bg-(--color-bg-quaternary) text-(--color-text-body)"
-              : "bg-(--color-bg-quaternary) text-(--color-text-disabled)"
+          className={`rounded-lg px-3 py-2 font-semibold ${
+            canPrev ? "bg-(--primary) text-(--background)" : "bg-(--tertiary)"
           }`}
         >
           Prev
+        </button>
+
+        <button
+          disabled={!canNext}
+          onClick={() => setPage(page + 1)}
+          className={`rounded-lg px-3 py-2 font-semibold ${
+            canNext ? "bg-(--primary) text-(--background)" : "bg-(--tertiary)"
+          }`}
+        >
+          Next
         </button>
 
         {pages.map((p) => (
@@ -66,32 +74,21 @@ export default function Pagination({
             onClick={() => setPage(p)}
             className={`h-8 w-8 rounded-lg text-center font-semibold ${
               p === page
-                ? "bg-(--color-primary-500) text-(--color-text-neutral)"
-                : "bg-(--color-bg-quaternary) text-(--color-text-body)"
+                ? "bg-primary-500 text-(--background)"
+                : "bg-(--tertiary)"
             }`}
           >
             {p}
           </button>
         ))}
-
-        <button
-          disabled={!canNext}
-          onClick={() => setPage(page + 1)}
-          className={`rounded-lg px-3 py-1.5 font-semibold ${
-            canNext
-              ? "bg-(--color-primary-500) text-(--color-text-neutral)"
-              : "bg-(--color-bg-quaternary) text-(--color-text-disabled)"
-          }`}
-        >
-          Next
-        </button>
       </div>
 
       {showGoTo && (
-        <div className="flex items-center gap-2 text-(--color-text-body)">
+        <div className="flex items-center gap-2">
           <span>Go To :</span>
           <input
             inputMode="numeric"
+            placeholder={`${totalPages}`}
             value={jumpValue}
             onChange={(event) => setJumpValue(event.target.value)}
             onBlur={() => jumpValue && handleGoTo(jumpValue)}
@@ -100,17 +97,17 @@ export default function Pagination({
                 handleGoTo(jumpValue);
               }
             }}
-            className="h-7 w-14 rounded-md border border-(--color-text-body) bg-(--color-bg-primary) text-center text-(--color-text-body) outline-none"
+            className="h-7 w-14 rounded-md border border-(--tertiary) text-center outline-none"
           />
         </div>
       )}
 
       {showPerPage && setPerPage && (
-        <div className="flex items-center gap-2 text-(--color-text-body)">
+        <div className="flex items-center gap-2">
           <select
             value={perPage}
             onChange={(event) => setPerPage(Number(event.target.value))}
-            className="h-7 min-w-[52px] rounded-md border border-(--color-text-body) bg-(--color-bg-primary) px-2 text-(--color-text-body) outline-none"
+            className="h-7 min-w-[52px] rounded-md border border-(--tertiary) px-2 outline-none"
           >
             {perPageOptions.map((option) => (
               <option key={option} value={option}>
@@ -118,7 +115,7 @@ export default function Pagination({
               </option>
             ))}
           </select>
-          <span>/Pages</span>
+          <span>/ Pages</span>
         </div>
       )}
     </div>

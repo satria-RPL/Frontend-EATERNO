@@ -39,7 +39,7 @@ export default function OrderHistoryView({
               Filter
             </button>
             {filterOpen && (
-              <div className="absolute right-0 mt-2 w-36 rounded-lg border border-[#e6e1dc] bg-white p-2 text-[11px] text-[#4b4b4b] shadow-md">
+              <div className="absolute z-50 right-0 mt-2 w-36 rounded-lg border border-[#e6e1dc] bg-white p-2 text-[11px] text-[#4b4b4b] shadow-md">
                 {[
                   { label: "Semua", value: "all" },
                   { label: "Proses", value: "proses" },
@@ -79,7 +79,7 @@ export default function OrderHistoryView({
               Sort
             </button>
             {sortOpen && (
-              <div className="absolute right-0 mt-2 w-36 rounded-lg border border-[#e6e1dc] bg-white p-2 text-[11px] text-[#4b4b4b] shadow-md">
+              <div className="absolute z-50 right-0 mt-2 w-36 rounded-lg border border-[#e6e1dc] bg-white p-2 text-[11px] text-[#4b4b4b] shadow-md">
                 {[
                   { label: "Terbaru", value: "newest" },
                   { label: "Terlama", value: "oldest" },

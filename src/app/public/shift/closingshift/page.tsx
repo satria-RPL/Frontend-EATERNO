@@ -4,6 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import ShiftModal from "@/components/modals/ShiftModal";
 
+function formatCashInput(value: string) {
+  if (!value) return "";
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 export default function ClosingShiftPage() {
   const router = useRouter();
   const [amount, setAmount] = useState("");
@@ -29,13 +36,13 @@ export default function ClosingShiftPage() {
         </label>
 
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
           className="border border-gray-300 rounded-lg px-4 py-2 w-full mb-6"
           placeholder="Rp"
-          min={0}
           required
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          value={formatCashInput(amount)}
+          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
         />
 
         <button

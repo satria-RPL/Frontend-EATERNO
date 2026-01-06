@@ -25,11 +25,11 @@ export default function Motivation({ userName }: { userName?: string }) {
   }, [quotes.length]);
 
   return (
-    <Card className="h-full">
-      <h2 className="text-lg font-semibold  font-[Poppins]">🔥 Motivasi Shift Hari Ini</h2>
+    <Card>
+      <h2 className="text-2xl font-medium font-[Poppins]">🔥 Motivasi Shift Hari Ini</h2>
 
       <div className="flex mt-5 h-full">
-        <p className="text-xl text-gray-700 leading-relaxed font-[Poppins] transition-opacity duration-500">
+        <p className="text-xl text-gray-700 font-[Poppins] transition-opacity duration-500">
           <span className="font-semibold">{userName ? `${userName}, ` : ""}</span>
           <span className="italic">“{quotes[index]}”</span>
         </p>

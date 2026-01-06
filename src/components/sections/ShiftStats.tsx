@@ -43,7 +43,7 @@ export default function ShiftStats({ userName, snapshot, metrics }: ShiftStatsPr
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold mb-4">
+      <h2 className="text-2xl font-medium mb-2">
         👋 Hai {userName}, Statistik Shift Anda
       </h2>
       <div className="mt-1 space-y-1 font-medium p-3 text-white">
