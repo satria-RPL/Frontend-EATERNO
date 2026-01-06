@@ -33,7 +33,7 @@ export default function SidebarLeft() {
   return (
     <aside
       className={cn(
-        "fixed top-22 bottom-0 left-0 border-r-2 border-gray-200 bg-white px-3 py-3 z-20 transform ease-in-out duration-300",
+        "fixed top-22 bottom-0 left-0 border-r-2 border-gray-200 px-3 py-3 z-20 transform ease-in-out duration-300",
         isSidebarExpanded ? "w-48" : "w-20"
       )}
     >
@@ -53,7 +53,7 @@ export default function SidebarLeft() {
       {/* ini yang di-justify-between */}
       <div className="flex h-full flex-col justify-between">
         {/* TOP */}
-        <div className="mt-3 space-y-1">
+        <div className="mt-3 space-y-4">
           {topItems.map((item) => (
             <SideNavItem
               key={item.href}
@@ -64,7 +64,7 @@ export default function SidebarLeft() {
         </div>
 
         {/* BOTTOM */}
-        <div className="mb-3 space-y-1">
+        <div className="mb-3 space-y-4">
           {bottomItems.map((item) => (
             <SideNavItem
               key={item.href}
@@ -88,10 +88,9 @@ export function SideNavItem({
   isSidebarExpanded,
 }: SideNavItemProps) {
   const baseClasses =
-    "relative flex items-center whitespace-nowrap rounded-md text-sm duration-100";
+    "relative flex items-center whitespace-nowrap rounded-md text-sm duration-100 bg-white";
   const activeClasses = "bg-orange-50 text-orange-500";
-  const inactiveClasses =
-    "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 dark:hover:bg-orange-50 dark:hover:text-orange-600";
+  const inactiveClasses = "hover:bg-orange-50 hover:text-orange-500";
 
   return isSidebarExpanded ? (
     <Link

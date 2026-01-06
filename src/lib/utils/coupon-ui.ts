@@ -1,10 +1,10 @@
 // src/lib/utils/coupon-ui.ts
-import type { Promotion } from "@/lib/services/couponService";
+import type { Coupon } from "@/domain/checkout/coupons";
 
 export type CouponUIState = "selected" | "available" | "expired";
 
 export function getCouponUIState(
-  coupon: Promotion,
+  coupon: Coupon,
   selectedCoupons: string[]
 ): CouponUIState {
   const now = new Date();

@@ -1,4 +1,4 @@
-import type { OrderSummary } from "@/data/orders";
+import type { OrderSummary } from "@/domain/orders/types";
 
 type KitchenOrderApiItem = Record<string, unknown>;
 type ApiResult<T = unknown> =

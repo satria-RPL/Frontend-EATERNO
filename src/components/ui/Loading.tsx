@@ -2,7 +2,27 @@
 
 import { motion } from "framer-motion";
 
-export default function Loading() {
+type LoadingVariant = "request-payment" | "print-receipt";
+
+const loadingCopy: Record<LoadingVariant, { title: string; subtitle: string }> =
+  {
+    "request-payment": {
+      title: "Request Payment",
+      subtitle: "Processing Order",
+    },
+    "print-receipt": {
+      title: "Proses Cetak Struk",
+      subtitle: "Cetak Struk",
+    },
+  };
+
+export default function Loading({
+  variant = "request-payment",
+}: {
+  variant?: LoadingVariant;
+}) {
+  const { title, subtitle } = loadingCopy[variant];
+
   return (
     <div className="flex flex-col items-center justify-center h-screen gap-3">
       {/* bouncing dots */}
@@ -44,12 +64,12 @@ export default function Loading() {
 
       {/* title */}
       <p className="text-lg font-semibold flex items-center">
-        Request Payment
+        {title}
         <span className="ml-1 typing-dots"></span>
       </p>
 
       {/* subtitle */}
-      <p className="text-gray-400 text-sm">Processing Order</p>
+      <p className="text-gray-400 text-sm">{subtitle}</p>
 
       <style jsx>{`
         .typing-dots {

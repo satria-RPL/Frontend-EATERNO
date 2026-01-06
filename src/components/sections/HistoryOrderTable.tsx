@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Eye, Trash2 } from "lucide-react";
-import { fetchOrders } from "@/lib/services/orderService";
+import { createOrderHistoryActions } from "@/domain/orders/orderHistory";
+import { fetchOrders, voidOrder } from "@/lib/services/orderService";
 import { Order } from "@/types/order";
 import Pagination from "@/components/ui/Pagination";
 import VoidModal from "@/components/modals/VoidTransaksi";
@@ -32,14 +33,24 @@ export default function OrderTable({
   const [detailModal, setDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  const loadOrders = async () => {
-    const data = await fetchOrders();
-    setOrders(data);
-  };
+  const { loadOrders, voidTransaction } = useMemo(
+    () => createOrderHistoryActions({ fetchOrders, voidOrder }),
+    []
+  );
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    let active = true;
+    loadOrders()
+      .then((data) => {
+        if (active) setOrders(data);
+      })
+      .catch(() => {
+        if (active) setOrders([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [loadOrders]);
 
   const searched = useMemo(() => {
     const normalized = searchTerm.trim().toLowerCase();
@@ -96,13 +107,9 @@ export default function OrderTable({
   const handleConfirmVoid = async (reason: string, pin: string) => {
     if (!selectedOrder) return;
 
-    await fetch(`/api/orders/${selectedOrder.id}/void`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason, pin }),
-    });
-
-    await loadOrders();
+    await voidTransaction(selectedOrder.id, reason, pin);
+    const updated = await loadOrders();
+    setOrders(updated);
     setVoidModal(false);
     setSelectedOrder(null);
   };

@@ -177,3 +177,18 @@ export async function fetchOrders(): Promise<Order[]> {
     return [];
   }
 }
+
+export async function voidOrder(
+  orderId: string,
+  payload: { reason: string; pin: string }
+) {
+  const res = await fetch(`/api/orders/${orderId}/void`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Void gagal (${res.status})`);
+  }
+}

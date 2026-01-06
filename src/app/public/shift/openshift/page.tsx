@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -11,18 +11,30 @@ import {
   type StationOption,
 } from "@/domain/shift/shiftOptions";
 import { createOpenShiftAction } from "@/domain/shift/openShift";
+import { createCashierShiftStatusLoader } from "@/domain/shift/cashierShiftStatus";
 import {
   createCashierShift,
+  fetchCashierShifts,
   fetchShifts,
   fetchStations,
 } from "@/lib/services/shiftService";
 
+function formatCashInput(value: string) {
+  if (!value) return "";
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 const { loadShiftOptions, loadStationOptions } = createShiftOptionsLoader({
   fetchShifts,
-  fetchStations,
+  fetchStations: () => fetchStationsWithTimeout(5000),
 });
 
 const { openShift } = createOpenShiftAction({ createCashierShift });
+const { loadOccupiedStationIds } = createCashierShiftStatusLoader({
+  fetchCashierShifts,
+});
 
 export default function OpenShiftPage() {
   const [shift, setShift] = useState("");
@@ -35,15 +47,29 @@ export default function OpenShiftPage() {
   const [stationOptions, setStationOptions] = useState<StationOption[]>([]);
   const [stationLoading, setStationLoading] = useState(true);
   const [stationError, setStationError] = useState<string | null>(null);
+  const [stationNotice, setStationNotice] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRouting, startRouting] = useTransition();
+  const [isShiftOpen, setIsShiftOpen] = useState(false);
+  const [isStationOpen, setIsStationOpen] = useState(false);
+  const [occupiedStationIds, setOccupiedStationIds] = useState<string[]>([]);
+  const shiftSelectRef = useRef<HTMLDivElement | null>(null);
+  const stationSelectRef = useRef<HTMLDivElement | null>(null);
+  const isMountedRef = useRef(true);
 
   const router = useRouter();
   const amountNumber = Number(amount);
   const isAmountValid = !Number.isNaN(amountNumber) && amountNumber > 0;
+  const occupiedStationSet = new Set(occupiedStationIds);
+  const isStationOccupied = station !== "" && occupiedStationSet.has(station);
 
-  const isFormValid = shift !== "" && station !== "" && isAmountValid;
+  const isFormValid =
+    shift !== "" && station !== "" && isAmountValid && !isStationOccupied;
+  const shiftLabel =
+    shiftOptions.find((option) => option.value === shift)?.label ?? "";
+  const stationLabel =
+    stationOptions.find((option) => option.value === station)?.label ?? "";
 
   const handleContinue = () => {
     if (!isFormValid) return;
@@ -87,7 +113,11 @@ export default function OpenShiftPage() {
     let isActive = true;
 
     const loadShifts = async () => {
-      setShiftLoading(true);
+      const cachedShifts = readCachedShifts();
+      const shouldShowLoading = !cachedShifts || cachedShifts.length === 0;
+      if (shouldShowLoading) {
+        setShiftLoading(true);
+      }
       setShiftError(null);
 
       try {
@@ -95,6 +125,7 @@ export default function OpenShiftPage() {
         if (!isActive) return;
 
         setShiftOptions(result.options);
+        writeCachedShifts(result.options);
         setShift((current) =>
           result.options.some((option) => option.value === current)
             ? current
@@ -107,7 +138,7 @@ export default function OpenShiftPage() {
         setShift("");
         setShiftError("Gagal mengambil data shift");
       } finally {
-        if (isActive) setShiftLoading(false);
+        if (isActive && shouldShowLoading) setShiftLoading(false);
       }
     };
 
@@ -119,67 +150,213 @@ export default function OpenShiftPage() {
   }, []);
 
   useEffect(() => {
-    let isActive = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-    const loadStations = async () => {
-      setStationLoading(true);
-      setStationError(null);
+  useEffect(() => {
+    const cachedStations = readCachedStations();
+    if (cachedStations) {
+      setStationOptions(cachedStations);
+      setStationLoading(false);
+    }
+  }, []);
 
-      try {
-        const result = await loadStationOptions();
-        if (!isActive) return;
+  useEffect(() => {
+    const cachedShifts = readCachedShifts();
+    if (cachedShifts) {
+      setShiftOptions(cachedShifts);
+      setShiftLoading(false);
+    }
+  }, []);
 
-        setStationOptions(result.options);
-        setStation((current) =>
-          result.options.some((option) => option.value === current)
-            ? current
-            : ""
-        );
-        setStationError(result.error);
-      } catch {
-        if (!isActive) return;
-        setStationOptions([]);
-        setStation("");
+  useEffect(() => {
+    if (!stationLoading) return;
+    const timeoutId = window.setTimeout(() => {
+      if (!isMountedRef.current) return;
+      setStationLoading(false);
+      if (!stationError && stationOptions.length === 0) {
         setStationError("Gagal mengambil data station");
-      } finally {
-        if (isActive) setStationLoading(false);
+      }
+    }, 6000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [stationLoading, stationError, stationOptions.length]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (shiftSelectRef.current && !shiftSelectRef.current.contains(target)) {
+        setIsShiftOpen(false);
+      }
+      if (
+        stationSelectRef.current &&
+        !stationSelectRef.current.contains(target)
+      ) {
+        setIsStationOpen(false);
       }
     };
 
-    loadStations();
-
-    return () => {
-      isActive = false;
-    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const loadStations = useCallback(async (showLoading = true) => {
+    const cachedStations = readCachedStations();
+    const shouldShowLoading =
+      showLoading && (!cachedStations || cachedStations.length === 0);
+    if (shouldShowLoading) {
+      setStationLoading(true);
+    }
+    setStationError(null);
+    setStationNotice(null);
+
+    let stationResult: { options: StationOption[]; error: string | null };
+
+    try {
+      stationResult = await loadStationOptions();
+    } catch {
+      if (!isMountedRef.current) return;
+      setStationOptions([]);
+      setStation("");
+      setStationError("Gagal mengambil data station");
+      if (shouldShowLoading) setStationLoading(false);
+      return;
+    }
+
+    if (!isMountedRef.current) return;
+    setStationOptions(stationResult.options);
+    writeCachedStations(stationResult.options);
+    setStation((current) =>
+      stationResult.options.some((option) => option.value === current)
+        ? current
+        : ""
+    );
+    setStationError(stationResult.error);
+    if (shouldShowLoading) setStationLoading(false);
+
+    try {
+      const statusResult = await withTimeoutSignal(3500, (signal) =>
+        loadOccupiedStationIds({ cache: "no-store", signal })
+      );
+      if (!isMountedRef.current) return;
+
+      if (!statusResult.ok) {
+        setOccupiedStationIds([]);
+        setStationNotice("Gagal memuat status station aktif");
+        return;
+      }
+
+      const occupiedIds = statusResult.occupiedIds;
+      const occupiedSet = new Set(occupiedIds);
+      setOccupiedStationIds(occupiedIds);
+      setStation((current) =>
+        current && occupiedSet.has(current) ? "" : current
+      );
+
+      if (
+        stationResult.options.length > 0 &&
+        occupiedIds.length >= stationResult.options.length
+      ) {
+        setStationNotice("Semua station sedang dipakai");
+      }
+    } catch {
+      if (!isMountedRef.current) return;
+      setOccupiedStationIds([]);
+      setStationNotice("Gagal memuat status station aktif");
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStations(true);
+  }, [loadStations]);
+
+  useEffect(() => {
+    if (isStationOpen) {
+      loadStations(false);
+    }
+  }, [isStationOpen, loadStations]);
 
   return (
     <div className="w-full mx-auto pt-10 gap-10 flex flex-col px-48">
       {/* Shift */}
       <div className="mb-6">
         <label className="block mb-5 text-xl font-medium">Shift</label>
-        <div className="relative">
-          <select
-            value={shift}
-            onChange={(e) => setShift(e.target.value)}
+        <div className="relative" ref={shiftSelectRef}>
+          <button
+            type="button"
             disabled={shiftLoading || shiftOptions.length === 0}
-            className="w-full border rounded-lg px-4 py-3 appearance-none text-gray-700"
+            onClick={() => {
+              if (shiftLoading || shiftOptions.length === 0) return;
+              setIsShiftOpen((prev) => !prev);
+              setIsStationOpen(false);
+            }}
+            className={`w-full rounded-2xl border-2 px-6 py-4 text-left text-lg transition ${
+              shiftLoading || shiftOptions.length === 0
+                ? "border-zinc-500 text-gray-400"
+                : "border-zinc-500 text-gray-700 hover:border-zinc-600"
+            }`}
           >
-            <option value="" disabled hidden>
-              {shiftLoading ? "Memuat shift..." : "Pilih Shift"}
-            </option>
-            {!shiftLoading && shiftOptions.length === 0 && (
-              <option value="" disabled>
-                Shift tidak tersedia
-              </option>
-            )}
-            {shiftOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+            <span className="flex items-center justify-between">
+              <span className={shiftLabel ? "text-gray-800" : "text-gray-400"}>
+                {shiftLabel ||
+                  (shiftLoading ? "Memuat shift..." : "Pilih Shift")}
+              </span>
+              <ChevronDown
+                className={`h-5 w-5 text-gray-500 transition ${
+                  isShiftOpen ? "rotate-180" : ""
+                }`}
+              />
+            </span>
+          </button>
+          {isShiftOpen && (
+            <div className="absolute z-20 mt-4 w-full rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <span className="absolute -top-2 left-8 h-4 w-4 rotate-45 border-l border-t border-gray-200 bg-white" />
+              <div className="max-h-72 overflow-auto">
+                {shiftOptions.length === 0 ? (
+                  <div className="px-6 py-4 text-gray-500">
+                    Shift tidak tersedia
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {shiftOptions.map((option) => {
+                      const isSelected = option.value === shift;
+                      return (
+                        <li key={option.value}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShift(option.value);
+                              setIsShiftOpen(false);
+                            }}
+                            className="flex w-full items-center justify-between px-6 py-4 text-left text-gray-700 hover:bg-gray-50"
+                          >
+                            <span>{option.label}</span>
+                            <span
+                              className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                                isSelected
+                                  ? "border-orange-500"
+                                  : "border-gray-400"
+                              }`}
+                            >
+                              <span
+                                className={`h-3 w-3 rounded-full ${
+                                  isSelected
+                                    ? "bg-orange-500"
+                                    : "bg-transparent"
+                                }`}
+                              />
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         {shiftError && (
           <p className="mt-2 text-sm text-red-500">{shiftError}</p>
@@ -189,31 +366,110 @@ export default function OpenShiftPage() {
       {/* Station */}
       <div className="mb-6">
         <label className="block mb-5 text-xl font-medium">Station</label>
-        <div className="relative">
-          <select
-            value={station}
-            onChange={(e) => setStation(e.target.value)}
-            disabled={stationLoading || stationOptions.length === 0}
-            className="w-full border rounded-lg px-4 py-3 appearance-none text-gray-700"
+        <div className="relative" ref={stationSelectRef}>
+          <button
+            type="button"
+            onClick={() => {
+              if (stationLoading) {
+                loadStations(true);
+              }
+              setIsStationOpen((prev) => !prev);
+              setIsShiftOpen(false);
+            }}
+            className={`w-full rounded-2xl border-2 px-6 py-4 text-left text-lg transition ${
+              stationLoading
+                ? "border-zinc-500 text-gray-400"
+                : "border-zinc-500 text-gray-700 hover:border-zinc-600"
+            }`}
           >
-            <option value="" disabled hidden>
-              {stationLoading ? "Memuat station..." : "Pilih Station"}
-            </option>
-            {!stationLoading && stationOptions.length === 0 && (
-              <option value="" disabled>
-                Station tidak tersedia
-              </option>
-            )}
-            {stationOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+            <span className="flex items-center justify-between">
+              <span
+                className={stationLabel ? "text-gray-800" : "text-gray-400"}
+              >
+                {stationLabel ||
+                  (stationLoading ? "Memuat station..." : "Pilih Station")}
+              </span>
+              <ChevronDown
+                className={`h-5 w-5 text-gray-500 transition ${
+                  isStationOpen ? "rotate-180" : ""
+                }`}
+              />
+            </span>
+          </button>
+          {isStationOpen && (
+            <div className="absolute z-20 mt-4 w-full rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <span className="absolute -top-2 left-8 h-4 w-4 rotate-45 border-l border-t border-gray-200 bg-white" />
+              <div className="max-h-72 overflow-auto">
+                {stationOptions.length === 0 ? (
+                  <div className="px-6 py-4 text-gray-500">
+                    {stationLoading ? "Memuat station..." : "Station tidak tersedia"}
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {stationOptions.map((option) => {
+                      const isSelected = option.value === station;
+                      const isOccupied = occupiedStationSet.has(option.value);
+                      return (
+                        <li key={option.value}>
+                          <button
+                            type="button"
+                            disabled={isOccupied}
+                            onClick={() => {
+                              if (isOccupied) return;
+                              setStation(option.value);
+                              setIsStationOpen(false);
+                            }}
+                            className={`flex w-full items-center justify-between px-6 py-4 text-left ${
+                              isOccupied
+                                ? "cursor-not-allowed text-gray-400"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            <span>{option.label}</span>
+                            <span
+                              className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                                isSelected
+                                  ? "border-orange-500"
+                                  : "border-gray-400"
+                              }`}
+                            >
+                              <span
+                                className={`h-3 w-3 rounded-full ${
+                                  isSelected
+                                    ? "bg-orange-500"
+                                    : "bg-transparent"
+                                }`}
+                              />
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         {stationError && (
-          <p className="mt-2 text-sm text-red-500">{stationError}</p>
+          <div className="mt-2 flex items-center gap-3 text-sm text-red-500">
+            <span>{stationError}</span>
+            <button
+              type="button"
+              onClick={() => loadStations(true)}
+              className="text-orange-600 hover:text-orange-700"
+            >
+              Muat ulang
+            </button>
+          </div>
+        )}
+        {!stationError && isStationOccupied && (
+          <p className="mt-2 text-sm text-red-500">
+            Station sedang dipakai kasir lain
+          </p>
+        )}
+        {!stationError && !isStationOccupied && stationNotice && (
+          <p className="mt-2 text-sm text-(--primary)">{stationNotice}</p>
         )}
       </div>
 
@@ -223,12 +479,12 @@ export default function OpenShiftPage() {
           Total Uang Pembuka
         </label>
         <input
-          type="number"
-          min={0}
+          type="text"
+          inputMode="numeric"
           placeholder="Rp"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className="w-full border rounded-lg px-4 py-3"
+          value={formatCashInput(amount)}
+          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
+          className="w-full border-2 rounded-lg px-4 py-3 border-zinc-500 focus:border-zinc-600 outline-none"
         />
       </div>
 
@@ -267,4 +523,74 @@ function persistPlaceId(placeId: string) {
   if (typeof window === "undefined") return;
   if (!placeId) return;
   window.localStorage.setItem("eaterno-place-id", placeId);
+}
+
+const STATION_CACHE_KEY = "eaterno-stations-cache";
+const SHIFT_CACHE_KEY = "eaterno-shifts-cache";
+const OPTIONS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function readCachedStations(): StationOption[] | null {
+  return readCachedOptions<StationOption>(STATION_CACHE_KEY);
+}
+
+function writeCachedStations(options: StationOption[]) {
+  writeCachedOptions(STATION_CACHE_KEY, options);
+}
+
+function readCachedShifts(): ShiftOption[] | null {
+  return readCachedOptions<ShiftOption>(SHIFT_CACHE_KEY);
+}
+
+function writeCachedShifts(options: ShiftOption[]) {
+  writeCachedOptions(SHIFT_CACHE_KEY, options);
+}
+
+function readCachedOptions<T>(key: string): T[] | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { savedAt?: number; options?: T[] };
+    if (!parsed || !Array.isArray(parsed.options)) return null;
+    if (typeof parsed.savedAt !== "number") return null;
+    if (Date.now() - parsed.savedAt > OPTIONS_CACHE_TTL_MS) return null;
+    return parsed.options;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedOptions<T>(key: string, options: T[]) {
+  if (typeof window === "undefined") return;
+  if (options.length === 0) return;
+  const payload = {
+    savedAt: Date.now(),
+    options,
+  };
+  window.localStorage.setItem(key, JSON.stringify(payload));
+}
+
+async function withTimeoutSignal<T>(
+  timeoutMs: number,
+  task: (signal: AbortSignal) => Promise<T>
+) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await task(controller.signal);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function fetchStationsWithTimeout(timeoutMs: number) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchStations({
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
