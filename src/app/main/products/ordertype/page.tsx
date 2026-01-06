@@ -4,29 +4,40 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { persistCheckoutState, readCheckoutState } from "@/lib/checkout/storage";
-
-const sanitizeCustomerName = (value: string) =>
-  value.replace(/[^A-Za-z\s]/g, "");
 
 export default function OrderType() {
   const [selected, setSelected] = useState<"takeaway" | "dinein" | null>(() => {
-    const saved = readCheckoutState();
-    if (saved.orderType === "takeaway") return "takeaway";
-    if (saved.orderType === "dinein") return "dinein";
+    if (typeof window === "undefined") return null;
+    const saved = window.localStorage.getItem("eaterno-checkout");
+    if (!saved) return null;
+    try {
+      const parsed = JSON.parse(saved) as { orderType?: string };
+      if (parsed.orderType === "takeaway") return "takeaway";
+      if (parsed.orderType === "dinein") return "dinein";
+    } catch {}
     return null;
   });
   const [customerName, setCustomerName] = useState(() => {
-    const saved = readCheckoutState();
-    return sanitizeCustomerName(saved.customerName ?? "");
+    if (typeof window === "undefined") return "";
+    const saved = window.localStorage.getItem("eaterno-checkout");
+    if (!saved) return "";
+    try {
+      const parsed = JSON.parse(saved) as { customerName?: string };
+      return parsed.customerName ?? "";
+    } catch {
+      return "";
+    }
   });
   const router = useRouter();
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("eaterno-checkout");
+    if (!saved) return;
     try {
-      const saved = readCheckoutState();
-      const customer = sanitizeCustomerName(saved.customerName ?? "").trim();
-      const orderType = saved.orderType;
+      const parsed = JSON.parse(saved) as CheckoutState;
+      const customer = parsed.customerName?.trim();
+      const orderType = parsed.orderType;
       if (!customer || !orderType) return;
 
       const params = new URLSearchParams();
@@ -34,8 +45,8 @@ export default function OrderType() {
       params.set("orderType", orderType);
 
       if (orderType === "dinein") {
-        if (saved.tableId) {
-          params.set("table", String(saved.tableId));
+        if (parsed.tableId) {
+          params.set("table", String(parsed.tableId));
           router.replace(`/main/products/list?${params.toString()}`);
         } else {
           router.replace(`/main/products/choosetable?${params.toString()}`);
@@ -75,7 +86,7 @@ export default function OrderType() {
 
   return (
     <div className="flex flex-col items-center justify-between h-120 py-5 gap-10">
-      <h1 className="text-4xl font-medium">Choose Order Type</h1>
+      <h1 className="text-2xl font-semibold">Choose Order Type</h1>
 
       <div className="flex items-center justify-center gap-20">
         {/* TAKE AWAY */}
@@ -84,7 +95,7 @@ export default function OrderType() {
             setSelected("takeaway");
             persistCheckoutState({ orderType: "takeaway" });
           }}
-          className={`border-2 rounded-2xl p-10 flex flex-col items-center gap-2 transition font-medium
+          className={`border-2 rounded-2xl p-10 flex flex-col items-center gap-2 transition
             ${
               selected === "takeaway"
                 ? "border-orange-500 text-orange-500"
@@ -106,7 +117,7 @@ export default function OrderType() {
             setSelected("dinein");
             persistCheckoutState({ orderType: "dinein" });
           }}
-          className={`border-2 rounded-2xl p-10 flex flex-col items-center gap-2 transition font-medium
+          className={`border-2 rounded-2xl p-10 flex flex-col items-center gap-2 transition
             ${
               selected === "dinein"
                 ? "border-orange-500 text-orange-500"
@@ -134,7 +145,7 @@ export default function OrderType() {
         placeholder="Nama"
         value={customerName}
         onChange={(e) => {
-          const value = sanitizeCustomerName(e.target.value);
+          const value = e.target.value;
           setCustomerName(value);
           persistCheckoutState({ customerName: value });
         }}
@@ -147,7 +158,7 @@ export default function OrderType() {
         onClick={handleContinue}
         disabled={!isFormValid}
         size="lg"
-        className={`w-full max-w-md rounded-xl font-medium transition ${
+        className={`w-full max-w-md rounded-2xl font-medium transition ${
           isFormValid ? "hover:opacity-90" : "bg-gray-300"
         }`}
       >
@@ -157,3 +168,26 @@ export default function OrderType() {
   );
 }
 
+function persistCheckoutState(next: Partial<CheckoutState>) {
+  if (typeof window === "undefined") return;
+  const saved = window.localStorage.getItem("eaterno-checkout");
+  let current: CheckoutState = {};
+  if (saved) {
+    try {
+      current = JSON.parse(saved) as CheckoutState;
+    } catch {
+      current = {};
+    }
+  }
+  const merged = { ...current, ...next };
+  window.localStorage.setItem("eaterno-checkout", JSON.stringify(merged));
+}
+
+type CheckoutState = {
+  customerName?: string;
+  orderType?: "takeaway" | "dinein";
+  tableId?: number | null;
+  paymentMethod?: string;
+  selectedCoupons?: string[];
+  cashInput?: string;
+};

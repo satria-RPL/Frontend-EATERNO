@@ -16,7 +16,6 @@ import { ProductsHeader } from "@/components/products/ProductsHeader";
 import { OrderCards } from "@/components/products/OrderCards";
 import { ProductCategories } from "@/components/products/ProductCategories";
 import { ProductsGrid } from "@/components/products/ProductsGrid";
-import { clearCheckoutState } from "@/lib/checkout/storage";
 import { useRouter } from "next/navigation";
 
 type ProductsListClientProps = {
@@ -38,7 +37,9 @@ export default function ProductsListClient({
   );
 
   const handleBackOrderType = () => {
-    clearCheckoutState();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("eaterno-checkout");
+    }
     router.push("/main/products/ordertype");
   };
 

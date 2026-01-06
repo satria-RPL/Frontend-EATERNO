@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import TableCard from "@/components/cards/TableCard";
-import { persistCheckoutState } from "@/lib/checkout/storage";
 import { TablesService } from "@/lib/services/tablesService";
 
 type TableUI = {
@@ -28,6 +27,7 @@ export default function ChooseTable() {
           label: t.name,
           disabled: t.status === "occupied",
           size: t.placeId === 1 ? "small" : "large", 
+          // ⬆️ sementara, nanti bisa ganti pakai capacity
         }));
         setTables(mapped);
       })
@@ -97,3 +97,26 @@ export default function ChooseTable() {
   );
 }
 
+function persistCheckoutState(next: Partial<CheckoutState>) {
+  if (typeof window === "undefined") return;
+  const saved = window.localStorage.getItem("eaterno-checkout");
+  let current: CheckoutState = {};
+  if (saved) {
+    try {
+      current = JSON.parse(saved) as CheckoutState;
+    } catch {
+      current = {};
+    }
+  }
+  const merged = { ...current, ...next };
+  window.localStorage.setItem("eaterno-checkout", JSON.stringify(merged));
+}
+
+type CheckoutState = {
+  customerName?: string;
+  orderType?: "takeaway" | "dinein";
+  tableId?: number | null;
+  paymentMethod?: string;
+  selectedCoupons?: string[];
+  cashInput?: string;
+};
