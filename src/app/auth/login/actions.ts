@@ -37,6 +37,10 @@ export async function handleLogin(
     })
   );
 
+  const role = String(user?.role ?? "").toLowerCase();
+  if (role.includes("chef")) {
+    redirect("/main/kitchen");
+  }
   redirect("/public/shift/openshift");
 }
 

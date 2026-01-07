@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChefHat } from "lucide-react";
+import { usePathname } from "next/navigation";
 import {
   Tooltip,
   TooltipContent,
@@ -12,10 +14,15 @@ import { useNavItems } from "@/config/nav-items";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types/nav";
 import { usePersistentBoolean } from "@/lib/hooks/usePersistentBoolean";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
-export default function SidebarLeft() {
+type SidebarLeftProps = {
+  role?: string;
+};
+
+export default function SidebarLeft({ role }: SidebarLeftProps) {
   const navItems = useNavItems();
+  const pathname = usePathname();
   const { value: isSidebarExpanded, toggle } = usePersistentBoolean(
     "sidebarExpanded",
     true
@@ -27,8 +34,32 @@ export default function SidebarLeft() {
     document.documentElement.style.setProperty("--sidebar-width", width);
   }, [isSidebarExpanded]);
 
-  const topItems = navItems.filter((item) => item.position === "top");
-  const bottomItems = navItems.filter((item) => item.position === "bottom");
+  const normalizedRole = (role ?? "").toLowerCase();
+  const isChef = normalizedRole.includes("chef");
+  const kitchenNavItem = useMemo<NavItem>(
+    () => ({
+      name: "Kitchen",
+      href: "/main/kitchen",
+      icon: <ChefHat width={20} height={20} />,
+      active: pathname.startsWith("/main/kitchen"),
+      position: "top",
+    }),
+    [pathname]
+  );
+
+  const filteredItems = useMemo(() => {
+    if (!isChef) return navItems;
+    const allowedBottom = navItems.filter(
+      (item) =>
+        item.href.startsWith("/main/help") ||
+        item.href.startsWith("/main/settings") ||
+        item.href.startsWith("/public/shift/closingshift")
+    );
+    return [kitchenNavItem, ...allowedBottom];
+  }, [isChef, navItems, kitchenNavItem]);
+
+  const topItems = filteredItems.filter((item) => item.position === "top");
+  const bottomItems = filteredItems.filter((item) => item.position === "bottom");
 
   return (
     <aside

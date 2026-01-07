@@ -24,24 +24,23 @@ export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
         const headerMeta = getHeaderMeta(order);
         const typeLabel =
           order.type === "dinein" ? "Dine In" : "Take Away";
-        const bodyClass =
-          order.type === "dinein" ? "bg-rose-50" : "bg-orange-50";
-        const buttonClass =
+        const bodyColor =
           order.type === "dinein"
-            ? "bg-red-500 hover:bg-red-600"
-            : "bg-orange-500 hover:bg-orange-600";
-        const previewItems = order.itemsPreview.slice(0, 1);
-        const hiddenItems = order.itemsPreview.length - previewItems.length;
-        const moreCount =
-          (order.itemsMoreCount ?? 0) + (hiddenItems > 0 ? hiddenItems : 0);
+            ? "var(--kichencard_dinein1)"
+            : "var(--kichencard_takeaway)";
+        const buttonColor =
+          order.type === "dinein"
+            ? "var(--kichencard_dinein2)"
+            : "var(--kichencard_takeaway2)";
+        const mutedBodyColor = `color-mix(in srgb, ${buttonColor} 12%, white)`;
 
         return (
           <div
             key={order.id}
-            className="min-w-72 h-32 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col"
+            className="w-[228px] h-[110px] shrink-0 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col"
           >
             <div className="flex items-center justify-between gap-2 px-4 py-2 min-w-0">
-              <p className="font-semibold text-sm text-gray-800 truncate">
+              <p className="font-semibold text-sm text-default truncate">
                 {order.title}
               </p>
               <span className="text-[11px] text-gray-500 truncate">
@@ -50,39 +49,30 @@ export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
             </div>
 
             <div
-              className={`border-t border-gray-200 px-4 py-2 ${bodyClass} flex flex-1 flex-col`}
+              className="border-t border-gray-200 px-4 py-2 flex flex-1 flex-col gap-2"
+              style={{ backgroundColor: mutedBodyColor }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-sm font-semibold text-gray-800">
+                  <span className="text-sm font-semibold text-default">
                     Items
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-600">
                     {order.itemsCount}x
                   </span>
                 </div>
-                <span className="text-[11px] font-semibold">{typeLabel}</span>
-              </div>
-
-              <div className="mt-1 space-y-0.5 text-[11px] text-gray-600 leading-tight">
-                {previewItems.map((item, index) => (
-                  <p key={`${order.id}-item-${index}`} className="truncate">
-                    {item}
-                  </p>
-                ))}
-                {moreCount > 0 ? (
-                  <p className="text-[10px] text-gray-500">
-                    ... {moreCount} items lainnya
-                  </p>
-                ) : null}
+                <span className="text-[11px] font-semibold text-default">
+                  {typeLabel}
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-gray-400">
+                <span className="text-[10px] text-gray-600">
                   {order.timeAgo}
                 </span>
                 <span
-                  className={`h-6 rounded-full px-4 text-[11px] font-semibold text-white flex items-center ${buttonClass}`}
+                  className="h-6 rounded-full px-4 text-[11px] font-semibold text-white flex items-center hover:opacity-90"
+                  style={{ backgroundColor: buttonColor }}
                 >
                   Proses
                 </span>

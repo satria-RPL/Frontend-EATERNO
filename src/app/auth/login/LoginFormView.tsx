@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useFormStatus } from "react-dom";
+import { useState } from "react";
 
 import type { LoginFormState } from "./actions";
 
@@ -11,6 +12,9 @@ type LoginFormViewProps = {
 };
 
 export function LoginFormView({ state, formAction }: LoginFormViewProps) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
   return (
     <div className="min-h-screen">
       <nav className="w-full mb-12">
@@ -59,6 +63,8 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
                   autoComplete="username"
                   className="w-full outline-none text-sm text-gray-700 bg-transparent"
                   required
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
                 />
               </div>
 
@@ -78,6 +84,8 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
                   autoComplete="current-password"
                   className="w-full outline-none text-sm text-gray-700 bg-transparent"
                   required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
                 />
               </div>
               {state?.error && (
