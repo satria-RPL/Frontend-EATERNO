@@ -23,8 +23,31 @@
   --color-surface: var(--background);
   --color-surface-dark: var(--background-dark);
   --color-text: var(--text-default);
+  --tertiary: #e8e9ed;
+  --background-dark: #1f1f1f;
+  --background: #f4f4f4;
+  --background-secondary: #B0B0B0;
+  --kichencard_dinein1: #00AE3A;
+  --kichencard_dinein2: #DB2D2D;
+  --kichencard_takeaway: #F4DE15;
+  --kichencard_takeaway2: #EB5714;
 }
 
+@theme {
+  --color-primary-50: color-mix(in srgb, var(--primary) 10%, white);
+  --color-primary-100: color-mix(in srgb, var(--primary) 18%, white);
+  --color-primary-200: color-mix(in srgb, var(--primary) 35%, white);
+  --color-primary-300: color-mix(in srgb, var(--primary) 55%, white);
+  --color-primary-400: color-mix(in srgb, var(--primary) 75%, white);
+  --color-primary-500: var(--primary);
+  --color-primary-600: color-mix(in srgb, var(--primary) 85%, black);
+  --color-primary-700: color-mix(in srgb, var(--primary) 70%, black);
+  --color-secondary: var(--secondary);
+  --color-tertiary: var(--tertiary);
+  --color-surface: var(--background);
+  --color-surface-dark: var(--background-dark);
+  --color-text: var(--text-default);
+}
 @layer base {
   input,
   select,

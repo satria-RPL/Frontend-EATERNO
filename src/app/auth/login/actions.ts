@@ -25,9 +25,10 @@ export async function handleLogin(
   }
 
   const user = result.user;
+
   await setSessionCookie(
     JSON.stringify({
-      userId: result.userId ?? user?.id ?? null,
+      userId: result.userId ?? user.id ?? null,
       name: user.name ?? user.username ?? "",
       role: user.role ?? "",
       username: user.username ?? "",
@@ -37,11 +38,22 @@ export async function handleLogin(
     })
   );
 
+  const role = String(user.role ?? "").toLowerCase();
+
+  // waiters
+  if (role.includes("waiter")) {
+    redirect("/waiters");
+  }
+
+  if (role.includes("chef") || role.includes("kitchen")) {
+    redirect("/main/kitchen");
+  }
+
+  // cashier / admin / default
   redirect("/public/shift/openshift");
 }
 
 export async function logout() {
   await clearSessionCookie();
-
   redirect("/auth/login");
 }

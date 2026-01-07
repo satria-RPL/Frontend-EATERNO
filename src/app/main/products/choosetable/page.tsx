@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import TableCard from "@/components/cards/TableCard";
 import { TablesService } from "@/lib/services/tablesService";
+const STORAGE_KEY = "table-status-overrides";
+const channel = new BroadcastChannel("table-status");
+
 
 type TableUI = {
   id: number;
@@ -19,16 +22,66 @@ export default function ChooseTable() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+
+  useEffect(() => {
+  const onStorageChange = (e: StorageEvent) => {
+    if (e.key !== STORAGE_KEY || !e.newValue) return;
+
+    const overrides = JSON.parse(e.newValue);
+
+    setTables((prev) =>
+      prev.map((t) => {
+        const status = overrides[t.id];
+        if (!status) return t;
+
+        return {
+          ...t,
+          disabled: status !== "available",
+        };
+      })
+    );
+  };
+
+  window.addEventListener("storage", onStorageChange);
+  return () => window.removeEventListener("storage", onStorageChange);
+}, []);
+
+
+  useEffect(() => {
+  channel.onmessage = (event) => {
+    const { tableId, status } = event.data;
+
+    setTables((prev) =>
+      prev.map((t) =>
+        t.id === tableId
+          ? { ...t, disabled: status !== "available" }
+          : t
+      )
+    );
+  };
+
+  return () => {
+    channel.close();
+  };
+}, []);
+
   useEffect(() => {
     TablesService.getAll()
       .then((data) => {
-        const mapped: TableUI[] = data.map((t) => ({
-          id: t.id,
-          label: t.name,
-          disabled: t.status === "occupied",
-          size: t.placeId === 1 ? "small" : "large", 
-          // ⬆️ sementara, nanti bisa ganti pakai capacity
-        }));
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const overrides = raw ? JSON.parse(raw) : {};
+
+        const mapped: TableUI[] = data.map((t) => {
+          const finalStatus = overrides[t.id] ?? t.status;
+
+          return {
+            id: t.id,
+            label: t.name,
+            disabled: finalStatus !== "available",
+            size: t.placeId === 1 ? "small" : "large",
+          };
+        });
+
         setTables(mapped);
       })
       .catch((err) => console.error(err));
@@ -73,7 +126,9 @@ export default function ChooseTable() {
             label={t.label}
             disabled={t.disabled}
             active={selected === t.id}
-            onClick={() => setSelected(t.id)}
+            onClick={() => {
+              if (!t.disabled) setSelected(t.id);
+            }}
             size="large"
           />
         ))}
