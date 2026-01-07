@@ -9,6 +9,12 @@ export type KitchenOrdersService = {
   fetchKitchenOrders: () => Promise<ApiResult>;
 };
 
+type KitchenOrdersMapOptions = {
+  splitByItem?: boolean;
+};
+
+type KitchenOrdersLoaderOptions = KitchenOrdersService & KitchenOrdersMapOptions;
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -258,6 +264,24 @@ function resolveTimeAgo(
   return formatTimeAgo(rawTime);
 }
 
+function resolveTimestamp(
+  item: Record<string, unknown>,
+  transaction: Record<string, unknown> | null
+) {
+  const rawTime = pickFirst(
+    item.startedAt,
+    item.started_at,
+    item.createdAt,
+    item.created_at,
+    transaction?.createdAt,
+    transaction?.created_at,
+    item.finishedAt,
+    item.finished_at
+  );
+
+  return toTimestamp(rawTime);
+}
+
 function resolveItemLabels(
   item: Record<string, unknown>,
   transactionItem: Record<string, unknown> | null
@@ -324,6 +348,110 @@ function resolveItemLabels(
   return labels;
 }
 
+function resolveItemSku(
+  item: Record<string, unknown>,
+  transactionItem: Record<string, unknown> | null
+) {
+  const menuRecord = asRecord(
+    pickFirst(
+      transactionItem?.menu,
+      transactionItem?.menuItem,
+      transactionItem?.menu_item,
+      item.menu,
+      item.menuItem,
+      item.menu_item
+    )
+  );
+  const productRecord = asRecord(
+    pickFirst(transactionItem?.product, item.product)
+  );
+
+  return toStringValue(
+    pickFirst(
+      transactionItem?.sku,
+      transactionItem?.productSku,
+      transactionItem?.product_sku,
+      menuRecord?.sku,
+      productRecord?.sku,
+      item.sku,
+      item.productSku,
+      item.product_sku
+    )
+  );
+}
+
+function resolveItemAddons(
+  item: Record<string, unknown>,
+  transactionItem: Record<string, unknown> | null
+) {
+  const rawVariants = pickFirst(
+    transactionItem?.variants,
+    transactionItem?.variant,
+    transactionItem?.options,
+    item.variants,
+    item.variant,
+    item.options
+  );
+
+  const variants = Array.isArray(rawVariants) ? rawVariants : [];
+
+  const addons = variants
+    .map((variant) => asRecord(variant))
+    .filter((variant): variant is Record<string, unknown> => variant != null)
+    .map((variant) => {
+      const menuVariant = asRecord(
+        pickFirst(
+          variant.menuVariant,
+          variant.menu_variant,
+          variant.variant,
+          variant.option
+        )
+      );
+      return toStringValue(
+        pickFirst(
+          variant.name,
+          variant.optionName,
+          variant.option_name,
+          menuVariant?.name
+        )
+      );
+    })
+    .filter((name): name is string => Boolean(name));
+
+  return addons.length > 0 ? addons : undefined;
+}
+function resolveCategoryId(
+  item: Record<string, unknown>,
+  transactionItem: Record<string, unknown> | null
+) {
+  const menuRecord = asRecord(
+    pickFirst(
+      transactionItem?.menu,
+      transactionItem?.menuItem,
+      transactionItem?.menu_item,
+      item.menu,
+      item.menuItem,
+      item.menu_item
+    )
+  );
+  const productRecord = asRecord(
+    pickFirst(transactionItem?.product, item.product)
+  );
+
+  return toNumber(
+    pickFirst(
+      transactionItem?.categoryId,
+      transactionItem?.category_id,
+      menuRecord?.categoryId,
+      menuRecord?.category_id,
+      productRecord?.categoryId,
+      productRecord?.category_id,
+      item.categoryId,
+      item.category_id
+    )
+  );
+}
+
 function resolveItemCount(
   item: Record<string, unknown>,
   transactionItem: Record<string, unknown> | null
@@ -344,12 +472,12 @@ function resolveItemCount(
   return qty > 0 ? qty : 0;
 }
 
-export function mapKitchenOrders(payload: unknown): OrderSummary[] {
+function mapKitchenOrdersGrouped(payload: unknown): OrderSummary[] {
   const rawItems = unwrapArray<KitchenOrderApiItem>(payload);
   const items = expandTransactions(rawItems);
   if (items.length === 0) return [];
 
-  const grouped = new Map<string, OrderSummary>();
+  const grouped = new Map<string, { summary: OrderSummary; index: number }>();
   let fallbackId = 1;
 
   items.forEach((item, index) => {
@@ -382,13 +510,13 @@ export function mapKitchenOrders(payload: unknown): OrderSummary[] {
       toStringValue(record.transactionItemId) ??
       `item-${index}`;
 
-    const existing = grouped.get(groupKey);
     const labels = resolveItemLabels(record, transactionItem);
     const itemCount = resolveItemCount(record, transactionItem);
+    const existing = grouped.get(groupKey);
 
     if (existing) {
-      existing.itemsPreview.push(...labels);
-      existing.itemsCount += itemCount;
+      existing.summary.itemsPreview.push(...labels);
+      existing.summary.itemsCount += itemCount;
       return;
     }
 
@@ -410,17 +538,114 @@ export function mapKitchenOrders(payload: unknown): OrderSummary[] {
       itemsCount: itemCount,
       itemsPreview: labels,
       timeAgo: resolveTimeAgo(record, transaction),
+      itemSku: resolveItemSku(record, transactionItem),
+      itemAddons: resolveItemAddons(record, transactionItem),
     };
 
-    grouped.set(groupKey, summary);
+    grouped.set(groupKey, { summary, index });
   });
 
-  return Array.from(grouped.values());
+  return Array.from(grouped.values())
+    .sort((a, b) => {
+      if (a.summary.id !== b.summary.id) {
+        return a.summary.id - b.summary.id;
+      }
+      return a.index - b.index;
+    })
+    .map((entry) => entry.summary);
+}
+
+function mapKitchenOrdersSplit(payload: unknown): OrderSummary[] {
+  const rawItems = unwrapArray<KitchenOrderApiItem>(payload);
+  const items = expandTransactions(rawItems);
+  if (items.length === 0) return [];
+
+  let fallbackId = 1;
+  const summaries: Array<{
+    summary: OrderSummary;
+    categoryId: number | null;
+    index: number;
+  }> = [];
+
+  items.forEach((item, index) => {
+    const record = asRecord(item) ?? {};
+    const transactionItem = asRecord(
+      pickFirst(
+        record.transactionItem,
+        record.transaction_item,
+        record.transactionItemDetail,
+        record.transaction_item_detail
+      )
+    );
+    const transaction = asRecord(
+      pickFirst(record.transaction, transactionItem?.transaction, record.order)
+    );
+
+    const idRaw = pickFirst(
+      transaction?.id,
+      transaction?.transactionId,
+      transaction?.transaction_id,
+      record.transactionId,
+      record.transaction_id,
+      record.orderId,
+      record.order_id,
+      record.transactionItemId,
+      record.transaction_item_id,
+      record.id
+    );
+
+    const labels = resolveItemLabels(record, transactionItem);
+    const itemCount = resolveItemCount(record, transactionItem);
+
+    const summaryId =
+      toNumber(idRaw) ??
+      toNumber(record.transactionItemId) ??
+      toNumber(record.transaction_item_id) ??
+      toNumber(record.id) ??
+      fallbackId++;
+
+    const fallbackTitleId =
+      toStringValue(idRaw) ?? toStringValue(summaryId);
+
+    const summary: OrderSummary = {
+      id: summaryId,
+      type: resolveType(record, transaction),
+      title: resolveTitle(record, transaction, fallbackTitleId),
+      table: resolveTable(record, transaction),
+      customer: resolveCustomer(record, transaction),
+      itemsCount: itemCount,
+      itemsPreview: labels,
+      timeAgo: resolveTimeAgo(record, transaction),
+      itemSku: resolveItemSku(record, transactionItem),
+      itemAddons: resolveItemAddons(record, transactionItem),
+    };
+
+    summaries.push({
+      summary,
+      categoryId: resolveCategoryId(record, transactionItem),
+      index,
+    });
+  });
+
+  return summaries
+    .sort((a, b) => {
+      const categoryA = a.categoryId ?? Number.POSITIVE_INFINITY;
+      const categoryB = b.categoryId ?? Number.POSITIVE_INFINITY;
+      if (categoryA !== categoryB) {
+        return categoryA - categoryB;
+      }
+      if (a.summary.id !== b.summary.id) {
+        return a.summary.id - b.summary.id;
+      }
+      return a.index - b.index;
+    })
+    .map((entry) => entry.summary);
 }
 
 export function createKitchenOrdersLoader({
   fetchKitchenOrders,
-}: KitchenOrdersService) {
+  splitByItem = true,
+}: KitchenOrdersLoaderOptions) {
   async function loadKitchenOrders(): Promise<{
     orders: OrderSummary[];
     error: string | null;
@@ -434,7 +659,9 @@ export function createKitchenOrdersLoader({
     }
 
     return {
-      orders: mapKitchenOrders(result.data),
+      orders: splitByItem
+        ? mapKitchenOrdersSplit(result.data)
+        : mapKitchenOrdersGrouped(result.data),
       error: null,
     };
   }

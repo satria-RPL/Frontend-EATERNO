@@ -10,4 +10,6 @@ export type OrderSummary = {
   itemsPreview: string[];
   itemsMoreCount?: number;
   timeAgo: string;
+  itemSku?: string;
+  itemAddons?: string[];
 };
