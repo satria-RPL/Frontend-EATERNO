@@ -44,8 +44,7 @@ export default function ProductsListClient({
   };
 
   const { loadKitchenOrders } = useMemo(
-    // () => createKitchenOrdersLoader({ fetchKitchenOrders }),
-    () => createKitchenOrdersLoader({ fetchKitchenOrders, splitByItem: false }),
+    () => createKitchenOrdersLoader({ fetchKitchenOrders }),
     []
   );
 
