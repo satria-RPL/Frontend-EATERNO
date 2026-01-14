@@ -15,6 +15,13 @@ type KitchenOrdersMapOptions = {
 
 type KitchenOrdersLoaderOptions = KitchenOrdersService & KitchenOrdersMapOptions;
 
+type KitchenOrderStatusRecord = {
+  id?: number | string | null;
+  transactionItemId?: number | string | null;
+  status?: string | null;
+  note?: string | null;
+};
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -202,6 +209,78 @@ function resolveTitle(
   if (orderNumber) return `Order #${orderNumber}`;
   if (fallbackId) return `Order #${fallbackId}`;
   return "Order";
+}
+
+function resolveTransactionId(
+  item: Record<string, unknown>,
+  transaction: Record<string, unknown> | null
+) {
+  return toNumber(
+    pickFirst(
+      transaction?.id,
+      transaction?.transactionId,
+      transaction?.transaction_id,
+      item.transactionId,
+      item.transaction_id,
+      item.orderId,
+      item.order_id
+    )
+  );
+}
+
+function resolveTransactionItemId(
+  item: Record<string, unknown>,
+  transactionItem: Record<string, unknown> | null
+) {
+  return toNumber(
+    pickFirst(
+      transactionItem?.transactionItemId,
+      transactionItem?.transaction_item_id,
+      transactionItem?.id,
+      item.transactionItemId,
+      item.transaction_item_id,
+      item.id
+    )
+  );
+}
+
+export function normalizeKitchenStatus(value: unknown) {
+  const raw = toStringValue(value);
+  if (!raw) return null;
+  const normalized = raw.toLowerCase().replace(/[\s_-]/g, "");
+  if (["waiting", "queued", "queue"].includes(normalized)) return "queued";
+  if (["proses", "process", "processing", "inprogress"].includes(normalized))
+    return "proses";
+  if (["done", "selesai", "finish", "finished"].includes(normalized))
+    return "done";
+  return null;
+}
+
+function resolveKitchenStatus(
+  item: Record<string, unknown>,
+  transactionItem: Record<string, unknown> | null,
+  _transaction: Record<string, unknown> | null
+) {
+  return (
+    normalizeKitchenStatus(
+      pickFirst(
+        transactionItem?.status,
+        item.status
+      )
+    ) ?? "queued"
+  );
+}
+
+function resolveKitchenNote(
+  item: Record<string, unknown>,
+  transactionItem: Record<string, unknown> | null,
+  transaction: Record<string, unknown> | null
+) {
+  return (
+    toStringValue(
+      pickFirst(item.note, transactionItem?.note, transaction?.note)
+    ) ?? undefined
+  );
 }
 
 function resolveTable(
@@ -540,6 +619,10 @@ function mapKitchenOrdersGrouped(payload: unknown): OrderSummary[] {
       timeAgo: resolveTimeAgo(record, transaction),
       itemSku: resolveItemSku(record, transactionItem),
       itemAddons: resolveItemAddons(record, transactionItem),
+      transactionId: resolveTransactionId(record, transaction),
+      transactionItemId: resolveTransactionItemId(record, transactionItem),
+      kitchenStatus: resolveKitchenStatus(record, transactionItem, transaction),
+      kitchenNote: resolveKitchenNote(record, transactionItem, transaction),
     };
 
     grouped.set(groupKey, { summary, index });
@@ -618,6 +701,10 @@ function mapKitchenOrdersSplit(payload: unknown): OrderSummary[] {
       timeAgo: resolveTimeAgo(record, transaction),
       itemSku: resolveItemSku(record, transactionItem),
       itemAddons: resolveItemAddons(record, transactionItem),
+      transactionId: resolveTransactionId(record, transaction),
+      transactionItemId: resolveTransactionItemId(record, transactionItem),
+      kitchenStatus: resolveKitchenStatus(record, transactionItem, transaction),
+      kitchenNote: resolveKitchenNote(record, transactionItem, transaction),
     };
 
     summaries.push({
@@ -667,4 +754,36 @@ export function createKitchenOrdersLoader({
   }
 
   return { loadKitchenOrders };
+}
+
+export function applyKitchenOrderStatuses(
+  orders: OrderSummary[],
+  payload: unknown
+) {
+  const rawItems = unwrapArray<KitchenOrderStatusRecord>(payload);
+  const statusByItemId = new Map<string, KitchenOrderStatusRecord>();
+
+  rawItems.forEach((item) => {
+    const id = toStringValue(item.transactionItemId);
+    if (!id) return;
+    statusByItemId.set(id, item);
+  });
+
+  if (statusByItemId.size === 0) return orders;
+
+  return orders.map((order) => {
+    const itemId = toStringValue(order.transactionItemId);
+    if (!itemId) return order;
+    const statusItem = statusByItemId.get(itemId);
+    if (!statusItem) return order;
+
+    const normalizedStatus = normalizeKitchenStatus(statusItem.status);
+
+    return {
+      ...order,
+      kitchenOrderId: toNumber(statusItem.id) ?? order.kitchenOrderId,
+      kitchenStatus: normalizedStatus ?? order.kitchenStatus,
+      kitchenNote: statusItem.note ?? order.kitchenNote,
+    };
+  });
 }

@@ -4,7 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Eye, Trash2 } from "lucide-react";
 import { createOrderHistoryActions } from "@/domain/orders/orderHistory";
-import { fetchOrders, voidOrder } from "@/lib/services/orderService";
+import {
+  fetchOrders,
+  voidOrder,
+  updateTransactionStatus,
+  fetchTransactionById,
+} from "@/lib/services/orderService";
+import {
+  buildEscPosPayload,
+  getSerialApi,
+  openSerialPort,
+  writeSerial,
+  type SerialPortLike,
+} from "@/lib/printing/escpos";
 import { Order } from "@/types/order";
 import Pagination from "@/components/ui/Pagination";
 import VoidModal from "@/components/modals/VoidTransaksi";
@@ -13,7 +25,7 @@ import OrderDetailModal from "@/components/modals/OrderDetailModal";
 type OrderTableProps = {
   authName?: string;
   authRole?: string;
-  activeFilter: "all" | "proses" | "selesai" | "cancel";
+  activeFilter: "all" | "proses" | "ready_to_pickup" | "selesai" | "cancel";
   activeSort: "newest" | "oldest";
 };
 
@@ -32,6 +44,12 @@ export default function OrderTable({
   const [voidModal, setVoidModal] = useState(false);
   const [detailModal, setDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [printerPort, setPrinterPort] = useState<SerialPortLike | null>(null);
+  const [printerConnecting, setPrinterConnecting] = useState(false);
+  const [baudRate, setBaudRate] = useState(9600);
 
   const { loadOrders, voidTransaction } = useMemo(
     () => createOrderHistoryActions({ fetchOrders, voidOrder }),
@@ -40,17 +58,38 @@ export default function OrderTable({
 
   useEffect(() => {
     let active = true;
-    loadOrders()
-      .then((data) => {
-        if (active) setOrders(data);
-      })
-      .catch(() => {
-        if (active) setOrders([]);
-      });
+    const fetchData = () =>
+      loadOrders()
+        .then((data) => {
+          if (active) setOrders(data);
+        })
+        .catch(() => {
+          if (active) setOrders([]);
+        });
+
+    fetchData();
+    const intervalId = window.setInterval(fetchData, 15000);
     return () => {
       active = false;
+      window.clearInterval(intervalId);
     };
   }, [loadOrders]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("eaterno-printer-baud");
+    if (!stored) return;
+    const parsed = Number(stored);
+    if (Number.isFinite(parsed)) setBaudRate(parsed);
+  }, []);
+
+  useEffect(() => {
+    const port = printerPort;
+    return () => {
+      if (!port) return;
+      port.close().catch(() => {});
+    };
+  }, [printerPort]);
 
   const searched = useMemo(() => {
     const normalized = searchTerm.trim().toLowerCase();
@@ -99,9 +138,22 @@ export default function OrderTable({
     setVoidModal(true);
   };
 
-  const handleOpenDetail = (order: Order) => {
+  const handleOpenDetail = async (order: Order) => {
     setSelectedOrder(order);
     setDetailModal(true);
+    setStatusError(null);
+    setPrintError(null);
+
+    if (!order.transactionId) return;
+    if (order.note && order.note.trim()) return;
+
+    const result = await fetchTransactionById(order.transactionId);
+    if (result.ok) {
+      const updated = result.data;
+      setSelectedOrder((prev) =>
+        prev && prev.id === updated.id ? updated : prev
+      );
+    }
   };
 
   const handleConfirmVoid = async (reason: string, pin: string) => {
@@ -112,6 +164,59 @@ export default function OrderTable({
     setOrders(updated);
     setVoidModal(false);
     setSelectedOrder(null);
+  };
+
+  const handleMarkPickedUp = async (order: Order) => {
+    if (statusUpdating) return;
+    if (!order.transactionId) {
+      setStatusError("ID transaksi tidak ditemukan.");
+      return;
+    }
+    setStatusUpdating(true);
+    setStatusError(null);
+
+    const result = await updateTransactionStatus(
+      order.transactionId,
+      "paid"
+    );
+
+    if (!result.ok) {
+      setStatusError(result.error || "Gagal update status transaksi.");
+      setStatusUpdating(false);
+      return;
+    }
+
+    const updated = await loadOrders();
+    setOrders(updated);
+    const refreshed = updated.find((item) => item.id === order.id);
+    setSelectedOrder(refreshed ?? order);
+    setStatusUpdating(false);
+  };
+
+  const handlePrintReceipt = async (order: Order) => {
+    setPrintError(null);
+    if (printerConnecting) return;
+    const serialApi = getSerialApi();
+    if (!serialApi) {
+      setPrintError("Browser ini tidak mendukung Web Serial.");
+      return;
+    }
+
+    setPrinterConnecting(true);
+    try {
+      const port = printerPort ?? (await serialApi.requestPort());
+      await openSerialPort(port, baudRate);
+      const payload = await buildEscPosPayload(order, {
+        storeName: "Eaterno",
+        cashierName: authName || undefined,
+      });
+      await writeSerial(port, payload);
+      setPrinterPort(port);
+    } catch {
+      setPrintError("Gagal mencetak struk.");
+    } finally {
+      setPrinterConnecting(false);
+    }
   };
 
   return (
@@ -172,6 +277,13 @@ export default function OrderTable({
                     </span>
                   )}
 
+                  {order.status === "ready_to_pickup" && (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-[#0ea5e9] bg-white px-3 py-0.5 text-xs font-semibold text-[#0ea5e9]">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#0ea5e9]"></span>
+                      Ready to Pickup
+                    </span>
+                  )}
+
                   {order.status === "cancel" && (
                     <span className="inline-flex items-center gap-2 rounded-full border border-[#ef4444] bg-white px-3 py-0.5 text-xs font-semibold text-[#ef4444]">
                       <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444]"></span>
@@ -205,7 +317,7 @@ export default function OrderTable({
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#22c55e] text-white transition hover:opacity-90"
                       title="View"
                       type="button"
-                      onClick={() => handleOpenDetail(order)}
+                      onClick={() => void handleOpenDetail(order)}
                     >
                       <Eye size={16} />
                     </button>
@@ -246,6 +358,14 @@ export default function OrderTable({
         onClose={() => setDetailModal(false)}
         order={selectedOrder}
         cashierName={authName}
+        onMarkPickedUp={
+          !statusUpdating ? handleMarkPickedUp : undefined
+        }
+        onPrintReceipt={
+          !printerConnecting ? handlePrintReceipt : undefined
+        }
+        statusError={statusError}
+        printError={printError}
       />
     </div>
   );

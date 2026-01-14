@@ -9,7 +9,7 @@ type OrderHistoryViewProps = {
   authRole?: string;
 };
 
-type FilterValue = "all" | "proses" | "selesai" | "cancel";
+type FilterValue = "all" | "proses" | "ready_to_pickup" | "selesai" | "cancel";
 type SortValue = "newest" | "oldest";
 
 export default function OrderHistoryView({
@@ -43,6 +43,7 @@ export default function OrderHistoryView({
                 {[
                   { label: "Semua", value: "all" },
                   { label: "Proses", value: "proses" },
+                  { label: "Ready to Pickup", value: "ready_to_pickup" },
                   { label: "Done", value: "selesai" },
                   { label: "Cancel", value: "cancel" },
                 ].map((item) => (

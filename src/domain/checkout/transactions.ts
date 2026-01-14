@@ -11,11 +11,15 @@ export type CartItemInput = {
   addons?: CartAddonInput[] | null;
 };
 
-export function buildTransactionItems(items: CartItemInput[]) {
+export function buildTransactionItems(
+  items: CartItemInput[],
+  note?: string | null
+) {
   return items.map((item) => ({
     menuId: item.productId,
     qty: item.qty ?? 0,
     price: item.price ?? 0,
+    note: note ?? undefined,
     variants: (item.addons ?? []).map((addon) => ({
       menuVariantId: addon.variantId ?? null,
       extraPrice: addon.price ?? 0,

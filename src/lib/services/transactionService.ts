@@ -2,12 +2,26 @@ type ApiResult<T = unknown> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number; error: string; data?: unknown };
 
+type TransactionItem = {
+  id?: number | null;
+  transactionItemId?: number | null;
+  transaction_item_id?: number | null;
+  transactionId?: number | null;
+  transaction_id?: number | null;
+  note?: string | null;
+};
+
+type TransactionItemsResponse =
+  | TransactionItem[]
+  | { data?: TransactionItem[] };
+
 export type TransactionPayload = {
   cashierId?: number | string | null;
   placeId?: number | string | null;
   tableId?: number | string | null;
   orderType?: string | null;
   customerName?: string | null;
+  note?: string | null;
   totalItems?: number | null;
   total?: number | null;
   tax?: number | null;
@@ -18,6 +32,7 @@ export type TransactionPayload = {
     qty?: number;
     price?: number | null;
     menuId?: number | string | null;
+    note?: string | null;
     variants?: {
       menuVariantId?: number | string | null;
       extraPrice?: number | null;
@@ -68,4 +83,18 @@ export async function createTransaction(payload: TransactionPayload) {
 
 export async function fetchTransactions() {
   return fetchApi("/api/transactions");
+}
+
+export async function fetchTransactionItems() {
+  return fetchApi<TransactionItemsResponse>("/api/transaction-items");
+}
+
+export async function updateTransaction(
+  transactionId: number,
+  payload: Record<string, unknown>
+) {
+  return fetchApi(`/api/transactions/${transactionId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 }

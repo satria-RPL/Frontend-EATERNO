@@ -18,9 +18,12 @@ type ReceiptOptions = {
   storeName?: string;
   cashierName?: string;
   width?: number;
+  logoPath?: string;
+  logoMaxWidth?: number;
 };
 
 const DEFAULT_WIDTH = 32;
+const DEFAULT_LOGO_MAX_WIDTH = 384;
 
 export function getSerialApi(): NavigatorSerial | null {
   if (typeof navigator === "undefined") return null;
@@ -45,14 +48,13 @@ export async function writeSerial(port: SerialPortLike, data: Uint8Array) {
   }
 }
 
-export function buildEscPosPayload(
-  order: Order,
-  options: ReceiptOptions = {}
-) {
+export async function buildEscPosPayload(order: Order, options: ReceiptOptions = {}) {
   const width = options.width ?? DEFAULT_WIDTH;
   const storeName = options.storeName ?? "Eaterno";
   const cashierName = options.cashierName ?? "-";
   const divider = "-".repeat(width);
+  const logoPath = options.logoPath ?? "/img/brand.png";
+  const logoMaxWidth = options.logoMaxWidth ?? DEFAULT_LOGO_MAX_WIDTH;
 
   const detailItems = order.detailItems ?? [];
   const totalItems = detailItems.reduce((sum, item) => sum + item.qty, 0);
@@ -71,8 +73,9 @@ export function buildEscPosPayload(
   const rounding = subtotal > 0 ? total - totalWithoutRounding : 0;
   const displayDate = formatDateTime(order.createdAt ?? order.date);
   const displayOrderType = formatOrderType(order.orderType);
-  const displayCustomer =
-    order.customerName ?? (order.tableId ? `Table ${order.tableId}` : "-");
+  const displayCustomer = order.customerName ?? (order.tableId ? `Table ${order.tableId}` : "-");
+  const itemNotes = detailItems.map((item) => item.note).filter((note): note is string => Boolean(note && note.trim()));
+  const displayNote = order.note && order.note.trim() ? order.note.trim() : itemNotes.length > 0 ? itemNotes.join(", ") : null;
 
   const lines: string[] = [];
   lines.push(centerText(storeName.toUpperCase(), width));
@@ -114,23 +117,17 @@ export function buildEscPosPayload(
     });
   }
 
+  if (displayNote) {
+    lines.push(divider);
+    lines.push("Catatan:");
+    wrapText(displayNote, width).forEach((line) => lines.push(line));
+  }
+
   lines.push(divider);
-  lines.push(
-    formatLine(
-      `Subtotal (${totalItems || order.items} item)`,
-      formatCurrency(subtotalValue),
-      width
-    )
-  );
+  lines.push(formatLine(`Subtotal (${totalItems || order.items} item)`, formatCurrency(subtotalValue), width));
   lines.push(formatLine("PPN", formatCurrency(tax), width));
   lines.push(formatLine("Diskon", formatCurrency(discount), width));
-  lines.push(
-    formatLine(
-      "Rounding",
-      rounding ? formatCurrency(rounding) : "Rp 0",
-      width
-    )
-  );
+  lines.push(formatLine("Rounding", rounding ? formatCurrency(rounding) : "Rp 0", width));
   lines.push(formatLine("Total", formatCurrency(total), width));
   lines.push("");
   lines.push(centerText("Terima kasih", width));
@@ -139,7 +136,18 @@ export function buildEscPosPayload(
   const encoder = new TextEncoder();
   const init = Uint8Array.from([0x1b, 0x40]);
   const cut = Uint8Array.from([0x1d, 0x56, 0x00]);
-  return concatChunks([init, encoder.encode(text), cut]);
+  const alignCenter = Uint8Array.from([0x1b, 0x61, 0x01]);
+  const alignLeft = Uint8Array.from([0x1b, 0x61, 0x00]);
+  const lineFeed = encoder.encode("\n");
+  const chunks: Uint8Array[] = [init];
+
+  const logo = await buildLogoRaster(logoPath, logoMaxWidth);
+  if (logo) {
+    chunks.push(alignCenter, logo, lineFeed, alignLeft);
+  }
+
+  chunks.push(encoder.encode(text), cut);
+  return concatChunks(chunks);
 }
 
 function formatCurrency(value: number) {
@@ -218,4 +226,57 @@ function concatChunks(chunks: Uint8Array[]) {
     offset += chunk.length;
   });
   return merged;
+}
+
+async function buildLogoRaster(path: string, maxWidth: number): Promise<Uint8Array | null> {
+  if (typeof window === "undefined") return null;
+  const image = await loadImage(path);
+  if (!image) return null;
+
+  const scale = Math.min(1, maxWidth / image.width);
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(image, 0, 0, width, height);
+
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const bytesPerRow = Math.ceil(width / 8);
+  const raster = new Uint8Array(bytesPerRow * height);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const idx = (y * width + x) * 4;
+      const r = imageData.data[idx];
+      const g = imageData.data[idx + 1];
+      const b = imageData.data[idx + 2];
+      const a = imageData.data[idx + 3];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const isBlack = a > 128 && lum < 200;
+      if (isBlack) {
+        const byteIndex = y * bytesPerRow + Math.floor(x / 8);
+        raster[byteIndex] |= 0x80 >> x % 8;
+      }
+    }
+  }
+
+  const xL = bytesPerRow & 0xff;
+  const xH = (bytesPerRow >> 8) & 0xff;
+  const yL = height & 0xff;
+  const yH = (height >> 8) & 0xff;
+  const header = Uint8Array.from([0x1d, 0x76, 0x30, 0x00, xL, xH, yL, yH]);
+  return concatChunks([header, raster]);
+}
+
+async function loadImage(path: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = path;
+  });
 }

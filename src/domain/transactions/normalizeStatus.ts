@@ -1,16 +1,36 @@
 import type { OrderStatus } from "@/types/order";
 
 export function normalizeStatus(value: unknown): OrderStatus {
-  if (value === "proses" || value === "cancel" || value === "selesai") {
-    return value;
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (
+    normalized === "proses" ||
+    normalized === "cancel" ||
+    normalized === "selesai" ||
+    normalized === "ready_to_pickup"
+  ) {
+    return normalized;
   }
-  if (value === "done" || value === "finished" || value === "completed") {
+  if (
+    normalized === "done" ||
+    normalized === "finished" ||
+    normalized === "completed" ||
+    normalized === "ready" ||
+    normalized === "ready-to-pickup" ||
+    normalized === "readytopickup"
+  ) {
+    return "ready_to_pickup";
+  }
+  if (normalized === "paid" || normalized === "settled") {
     return "selesai";
   }
-  if (value === "cancelled" || value === "canceled") {
+  if (normalized === "cancelled" || normalized === "canceled") {
     return "cancel";
   }
-  if (value === "processing" || value === "process" || value === "pending") {
+  if (
+    normalized === "processing" ||
+    normalized === "process" ||
+    normalized === "pending"
+  ) {
     return "proses";
   }
   return "proses";

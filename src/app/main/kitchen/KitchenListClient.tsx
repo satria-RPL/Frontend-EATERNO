@@ -4,11 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock, RotateCcw } from "lucide-react";
 import { fetchOrders } from "@/lib/services/orderService";
 import type { Order } from "@/types/order";
-import OrderDetailModal from "@/components/modals/OrderDetailModal";
+import OrderDetailKitchenModal from "@/components/modals/OrderDetailKitchenModal";
 
 import type { OrderSummary } from "@/data/orders";
-import { createKitchenOrdersLoader } from "@/domain/kitchenOrders";
-import { fetchKitchenOrders } from "@/lib/services/kitchenOrderService";
+import {
+  applyKitchenOrderStatuses,
+  createKitchenOrdersLoader,
+} from "@/domain/kitchenOrders";
+import {
+  fetchKitchenOrders,
+  fetchKitchenOrderStatuses,
+  updateKitchenOrderStatus,
+  createKitchenOrderStatus,
+} from "@/lib/services/kitchenOrderService";
 
 type KitchenFilter = "all" | "dinein" | "takeaway" | "done" | "void";
 
@@ -27,6 +35,12 @@ export default function KitchenListClient() {
   const [detailOrders, setDetailOrders] = useState<Order[] | null>(null);
   const [detailModal, setDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedSummary, setSelectedSummary] = useState<OrderSummary | null>(
+    null
+  );
+  const [statusOverrides, setStatusOverrides] = useState<
+    Record<string, OrderSummary["kitchenStatus"]>
+  >({});
 
   const { loadKitchenOrders } = useMemo(() => createKitchenOrdersLoader({ fetchKitchenOrders }), []);
 
@@ -39,38 +53,107 @@ export default function KitchenListClient() {
       setIsLoading(false);
       return;
     }
-    setOrders(result.orders);
+    const statuses = await fetchKitchenOrderStatuses();
+    const merged = statuses.ok
+      ? applyKitchenOrderStatuses(result.orders, statuses.data)
+      : result.orders;
+    setOrders(merged);
+    setStatusOverrides({});
+
+    const missing = merged.filter(
+      (order) =>
+        order.transactionItemId != null &&
+        order.kitchenOrderId == null
+    );
+    if (missing.length > 0) {
+      const createdMap = new Map<string, number>();
+      for (const order of missing) {
+        const created = await createKitchenOrderStatus({
+          transactionItemId: order.transactionItemId!,
+          status: "queued",
+          note: order.kitchenNote ?? null,
+        });
+        const createdId =
+          created.ok &&
+          typeof created.data === "object" &&
+          created.data
+            ? (created.data as { id?: number }).id
+            : undefined;
+        if (createdId) {
+          createdMap.set(getStatusKey(order), createdId);
+        }
+      }
+      if (createdMap.size > 0) {
+        setOrders((prev) =>
+          prev.map((order) => {
+            const createdId = createdMap.get(getStatusKey(order));
+            return createdId
+              ? { ...order, kitchenOrderId: createdId }
+              : order;
+          })
+        );
+      }
+    }
     setIsLoading(false);
   };
 
   useEffect(() => {
     loadOrders();
+    const intervalId = window.setInterval(() => {
+      loadOrders();
+    }, 15000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
+  const getStatusKey = (order: OrderSummary) =>
+    `${order.transactionId ?? "t"}:${order.transactionItemId ?? order.id}`;
+
+  const getEffectiveStatus = (order: OrderSummary) => {
+    const key = getStatusKey(order);
+    return statusOverrides[key] ?? order.kitchenStatus ?? "queued";
+  };
+
   const filteredOrders = useMemo(() => {
-    if (activeFilter === "all") return orders;
+    if (activeFilter === "all") {
+      return orders.filter((order) => getEffectiveStatus(order) !== "done");
+    }
     if (activeFilter === "dinein" || activeFilter === "takeaway") {
-      return orders.filter((order) => order.type === activeFilter);
+      return orders.filter(
+        (order) =>
+          order.type === activeFilter && getEffectiveStatus(order) !== "done"
+      );
+    }
+    if (activeFilter === "done") {
+      return orders.filter((order) => getEffectiveStatus(order) === "done");
     }
     return [];
-  }, [activeFilter, orders]);
+  }, [activeFilter, orders, statusOverrides]);
 
-  const getStatusLabel = () => "Queued";
+  const getStatusLabel = (order: OrderSummary) => {
+    const status = getEffectiveStatus(order);
+    if (status === "queued") return "Queued";
+    if (status === "done") return "Selesai";
+    return "Proses";
+  };
 
-  const { queuedOrders, prosesOrders } = useMemo(() => {
+  const { queuedOrders, prosesOrders, doneOrders } = useMemo(() => {
     const queued: OrderSummary[] = [];
     const proses: OrderSummary[] = [];
+    const done: OrderSummary[] = [];
 
     filteredOrders.forEach((order) => {
-      if (getStatusLabel(order) === "Queued") {
+      const status = getEffectiveStatus(order);
+      if (status === "queued") {
         queued.push(order);
+      } else if (status === "done") {
+        done.push(order);
       } else {
         proses.push(order);
       }
     });
 
-    return { queuedOrders: queued, prosesOrders: proses };
-  }, [filteredOrders]);
+    return { queuedOrders: queued, prosesOrders: proses, doneOrders: done };
+  }, [filteredOrders, statusOverrides]);
 
   const handleOpenDetail = async (order: OrderSummary) => {
     let ordersData = detailOrders;
@@ -79,24 +162,107 @@ export default function KitchenListClient() {
       setDetailOrders(ordersData);
     }
 
-    const orderId = String(order.id);
+    const transactionId = order.transactionId ?? null;
     const matched =
-      ordersData?.find(
-        (item) => item.id.replace(/\D/g, "") === orderId
-      ) ?? null;
+      transactionId != null
+        ? ordersData?.find(
+            (item) => item.id.replace(/\D/g, "") === String(transactionId)
+          ) ?? null
+        : ordersData?.find(
+            (item) => item.id.replace(/\D/g, "") === String(order.id)
+          ) ?? null;
 
     if (!matched) {
-      console.warn("Order detail tidak ditemukan untuk", orderId);
+      console.warn("Order detail tidak ditemukan untuk", transactionId ?? order.id);
       return;
     }
 
     setSelectedOrder(matched);
+    setSelectedSummary((prev) => ({
+      ...(prev ?? order),
+      kitchenNote: order.kitchenNote ?? matched.note ?? null,
+    }));
     setDetailModal(true);
   };
 
   const handleCloseDetail = () => {
     setDetailModal(false);
     setSelectedOrder(null);
+    setSelectedSummary(null);
+  };
+
+  const handleUpdateStatus = async (
+    order: OrderSummary,
+    nextStatus: OrderSummary["kitchenStatus"]
+  ) => {
+    const key = getStatusKey(order);
+    const previousStatus = getEffectiveStatus(order);
+    setStatusOverrides((prev) => ({
+      ...prev,
+      [key]: nextStatus,
+    }));
+    setOrders((prev) =>
+      prev.map((item) =>
+        getStatusKey(item) === key
+          ? { ...item, kitchenStatus: nextStatus }
+          : item
+      )
+    );
+    setSelectedSummary((prev) =>
+      prev ? { ...prev, kitchenStatus: nextStatus } : prev
+    );
+
+    if (order.kitchenOrderId) {
+      const result = await updateKitchenOrderStatus(
+        order.kitchenOrderId,
+        nextStatus ?? "queued"
+      );
+      if (result.ok) {
+        loadOrders();
+        return;
+      }
+    } else if (order.transactionItemId != null) {
+      const created = await createKitchenOrderStatus({
+        transactionItemId: order.transactionItemId,
+        status: nextStatus ?? "queued",
+        note: order.kitchenNote ?? null,
+      });
+      if (created.ok) {
+        const createdId =
+          typeof created.data === "object" && created.data
+            ? (created.data as { id?: number }).id
+            : undefined;
+        if (createdId) {
+          setOrders((prev) =>
+            prev.map((item) =>
+              getStatusKey(item) === key
+                ? { ...item, kitchenOrderId: createdId }
+                : item
+            )
+          );
+          setSelectedSummary((prev) =>
+            prev ? { ...prev, kitchenOrderId: createdId } : prev
+          );
+        }
+        loadOrders();
+        return;
+      }
+    }
+
+    setStatusOverrides((prev) => ({
+      ...prev,
+      [key]: previousStatus,
+    }));
+    setOrders((prev) =>
+      prev.map((item) =>
+        getStatusKey(item) === key
+          ? { ...item, kitchenStatus: previousStatus }
+          : item
+      )
+    );
+    setSelectedSummary((prev) =>
+      prev ? { ...prev, kitchenStatus: previousStatus } : prev
+    );
   };
 
   const formatTimestamp = () =>
@@ -133,6 +299,105 @@ export default function KitchenListClient() {
 
   const getDetailTextColor = (order: OrderSummary) => (order.type === "dinein" ? "text-white" : "text-default");
 
+  const renderOrderRow = (rowOrders: OrderSummary[]) => (
+    <div className="flex flex-nowrap gap-[15px] overflow-x-auto pb-2 hide-scrollbar">
+      {rowOrders.map((order) => {
+        const headerColor = getHeaderColor(order);
+        const statusColor = getStatusColor(order);
+        const detailColor = getDetailColor(order);
+        const headerTextColor = getHeaderTextColor(order);
+        const detailTextColor = getDetailTextColor(order);
+        const items = order.itemsPreview.slice(0, 2);
+        const moreCount = Math.max(order.itemsPreview.length - items.length, 0);
+        const cardBorder = "var(--tertiary)";
+
+        return (
+          <div
+            key={getStatusKey(order)}
+            className="shrink-0 rounded-xl bg-white shadow-sm overflow-hidden"
+            style={{ width: 282, height: 173, border: `2px solid ${cardBorder}` }}
+          >
+            <div className="px-3 py-2" style={{ backgroundColor: headerColor }}>
+              <div className={`flex items-center justify-between text-[12px] font-semibold ${headerTextColor}`}>
+                <span>{getQueueLabel(order)}</span>
+                <span>{getHeaderMeta(order)}</span>
+              </div>
+              <div className={`flex items-center justify-between text-[10px] ${headerTextColor} opacity-90`}>
+                <span>{formatTimestamp()}</span>
+                <span>{order.type === "dinein" ? "Dine In" : "TakeAway"}</span>
+              </div>
+            </div>
+
+            <div className="px-2 pb-2">
+              <div
+                className="-mx-2 flex items-center justify-between px-3 text-[10px] font-semibold text-white"
+                style={{
+                  backgroundColor: statusColor,
+                  height: 27,
+                }}
+              >
+                <span className="flex items-center gap-1">
+                  <Clock size={12} className="text-white" />
+                  {order.timeAgo}
+                </span>
+                <span>{order.title}</span>
+              </div>
+
+              <div className="mt-2 flex gap-3" style={{ height: 107 }}>
+                <div className="flex-1 space-y-1">
+                  <div className="text-sm font-semibold text-default">{items[0] ? `1. ${items[0]}` : "1. -"}</div>
+                  {order.itemSku && <div className="text-[10px] text-gray-500">{order.itemSku}</div>}
+                  {order.itemAddons && order.itemAddons.length > 0 && (
+                    <div className="text-[10px] text-gray-500">
+                      {order.itemAddons.join(", ")}
+                    </div>
+                  )}
+                  {items[1] && <div className="text-xs text-gray-600">+ {items[1]}</div>}
+                  {moreCount > 0 && <div className="text-[10px] text-gray-500">+ {moreCount} items lainnya</div>}
+                </div>
+                <div className="flex w-[76px] flex-col items-end gap-2">
+                  <span
+                    className="rounded-full text-[10px] font-semibold text-white flex items-center justify-center leading-none"
+                    style={{
+                      backgroundColor: statusColor,
+                      width: 76,
+                      height: 23,
+                      borderRadius: 12,
+                      padding: "4px 21px",
+                    }}
+                  >
+                    {getStatusLabel(order)}
+                  </span>
+                  <span
+                    className={`rounded-full text-[10px] font-semibold flex items-center justify-center leading-none ${detailTextColor}`}
+                    style={{
+                      backgroundColor: detailColor,
+                      width: 76,
+                      height: 23,
+                      borderRadius: 12,
+                      padding: "4px 21px",
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleOpenDetail(order)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleOpenDetail(order);
+                      }
+                    }}
+                  >
+                    Detail
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="mb-10">
       <section className="flex items-start justify-between mb-3">
@@ -141,7 +406,18 @@ export default function KitchenListClient() {
 
           <div className="flex gap-2 rounded-full flex-wrap">
             {FILTERS.map((filter) => {
-              const count = filter.id === "all" ? orders.length : filter.id === "dinein" || filter.id === "takeaway" ? orders.filter((order) => order.type === filter.id).length : 0;
+              const count =
+                filter.id === "all"
+                  ? orders.filter((order) => getEffectiveStatus(order) !== "done").length
+                  : filter.id === "dinein" || filter.id === "takeaway"
+                  ? orders.filter(
+                      (order) =>
+                        order.type === filter.id &&
+                        getEffectiveStatus(order) !== "done"
+                    ).length
+                  : filter.id === "done"
+                  ? orders.filter((order) => getEffectiveStatus(order) === "done").length
+                  : 0;
 
               const isActive = activeFilter === filter.id;
 
@@ -178,205 +454,26 @@ export default function KitchenListClient() {
       </section>
 
       <div className="mt-12 space-y-4">
-        <div className="flex flex-nowrap gap-[15px] overflow-x-auto pb-2 hide-scrollbar">
-          {queuedOrders.map((order) => {
-          const headerColor = getHeaderColor(order);
-          const statusColor = getStatusColor(order);
-          const detailColor = getDetailColor(order);
-          const headerTextColor = getHeaderTextColor(order);
-          const detailTextColor = getDetailTextColor(order);
-          const items = order.itemsPreview.slice(0, 2);
-          const moreCount = Math.max(order.itemsPreview.length - items.length, 0);
-          const cardBorder = "var(--tertiary)";
-
-          return (
-            <div
-              key={order.id}
-              className="shrink-0 rounded-xl bg-white shadow-sm overflow-hidden"
-              style={{ width: 282, height: 173, border: `2px solid ${cardBorder}` }}
-            >
-              <div className="px-3 py-2" style={{ backgroundColor: headerColor }}>
-                <div className={`flex items-center justify-between text-[12px] font-semibold ${headerTextColor}`}>
-                  <span>{getQueueLabel(order)}</span>
-                  <span>{getHeaderMeta(order)}</span>
-                </div>
-                <div className={`flex items-center justify-between text-[10px] ${headerTextColor} opacity-90`}>
-                  <span>{formatTimestamp()}</span>
-                  <span>{order.type === "dinein" ? "Dine In" : "TakeAway"}</span>
-                </div>
-              </div>
-
-              <div className="px-2 pb-2">
-                <div
-                  className="-mx-2 flex items-center justify-between px-3 text-[10px] font-semibold text-white"
-                  style={{
-                    backgroundColor: statusColor,
-                    height: 27,
-                  }}
-                >
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} className="text-white" />
-                    {order.timeAgo}
-                  </span>
-                  <span>{order.title}</span>
-                </div>
-
-                <div className="mt-2 flex gap-3" style={{ height: 107 }}>
-                  <div className="flex-1 space-y-1">
-                    <div className="text-sm font-semibold text-default">{items[0] ? `1. ${items[0]}` : "1. -"}</div>
-                    {order.itemSku && <div className="text-[10px] text-gray-500">{order.itemSku}</div>}
-                    {order.itemAddons && order.itemAddons.length > 0 && (
-                      <div className="text-[10px] text-gray-500">
-                        {order.itemAddons.join(", ")}
-                      </div>
-                    )}
-                    {items[1] && <div className="text-xs text-gray-600">+ {items[1]}</div>}
-                    {moreCount > 0 && <div className="text-[10px] text-gray-500">+ {moreCount} items lainnya</div>}
-                  </div>
-                  <div className="flex w-[76px] flex-col items-end gap-2">
-                    <span
-                      className="rounded-full text-[10px] font-semibold text-white flex items-center justify-center leading-none"
-                      style={{
-                        backgroundColor: statusColor,
-                        width: 76,
-                        height: 23,
-                        borderRadius: 12,
-                        padding: "4px 21px",
-                      }}
-                    >
-                      {getStatusLabel(order)}
-                    </span>
-                    <span
-                      className={`rounded-full text-[10px] font-semibold flex items-center justify-center leading-none ${detailTextColor}`}
-                      style={{
-                        backgroundColor: detailColor,
-                        width: 76,
-                        height: 23,
-                        borderRadius: 12,
-                        padding: "4px 21px",
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleOpenDetail(order)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          handleOpenDetail(order);
-                        }
-                      }}
-                    >
-                      Detail
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        </div>
-
-        <div className="flex flex-nowrap gap-[15px] overflow-x-auto pb-2 hide-scrollbar">
-          {prosesOrders.map((order) => {
-            const headerColor = getHeaderColor(order);
-            const statusColor = getStatusColor(order);
-            const detailColor = getDetailColor(order);
-            const headerTextColor = getHeaderTextColor(order);
-            const detailTextColor = getDetailTextColor(order);
-            const items = order.itemsPreview.slice(0, 2);
-            const moreCount = Math.max(order.itemsPreview.length - items.length, 0);
-            const cardBorder = "var(--tertiary)";
-
-            return (
-              <div
-                key={order.id}
-                className="shrink-0 rounded-xl bg-white shadow-sm overflow-hidden"
-                style={{ width: 282, height: 173, border: `2px solid ${cardBorder}` }}
-              >
-                <div className="px-3 py-2" style={{ backgroundColor: headerColor }}>
-                  <div className={`flex items-center justify-between text-[12px] font-semibold ${headerTextColor}`}>
-                    <span>{getQueueLabel(order)}</span>
-                    <span>{getHeaderMeta(order)}</span>
-                  </div>
-                  <div className={`flex items-center justify-between text-[10px] ${headerTextColor} opacity-90`}>
-                    <span>{formatTimestamp()}</span>
-                    <span>{order.type === "dinein" ? "Dine In" : "TakeAway"}</span>
-                  </div>
-                </div>
-
-                <div className="px-2 pb-2">
-                  <div
-                    className="-mx-2 flex items-center justify-between px-3 text-[10px] font-semibold text-white"
-                    style={{
-                      backgroundColor: statusColor,
-                      height: 27,
-                    }}
-                  >
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} className="text-white" />
-                      {order.timeAgo}
-                    </span>
-                    <span>{order.title}</span>
-                  </div>
-
-                  <div className="mt-2 flex gap-3" style={{ height: 107 }}>
-                    <div className="flex-1 space-y-1">
-                      <div className="text-sm font-semibold text-default">{items[0] ? `1. ${items[0]}` : "1. -"}</div>
-                      {order.itemSku && <div className="text-[10px] text-gray-500">{order.itemSku}</div>}
-                      {order.itemAddons && order.itemAddons.length > 0 && (
-                        <div className="text-[10px] text-gray-500">
-                          {order.itemAddons.join(", ")}
-                        </div>
-                      )}
-                      {items[1] && <div className="text-xs text-gray-600">+ {items[1]}</div>}
-                      {moreCount > 0 && <div className="text-[10px] text-gray-500">+ {moreCount} items lainnya</div>}
-                    </div>
-                    <div className="flex w-[76px] flex-col items-end gap-2">
-                      <span
-                        className="rounded-full text-[10px] font-semibold text-white flex items-center justify-center leading-none"
-                        style={{
-                          backgroundColor: statusColor,
-                          width: 76,
-                          height: 23,
-                          borderRadius: 12,
-                          padding: "4px 21px",
-                        }}
-                      >
-                        {getStatusLabel(order)}
-                      </span>
-                      <span
-                        className={`rounded-full text-[10px] font-semibold flex items-center justify-center leading-none ${detailTextColor}`}
-                        style={{
-                          backgroundColor: detailColor,
-                          width: 76,
-                          height: 23,
-                          borderRadius: 12,
-                          padding: "4px 21px",
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleOpenDetail(order)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            handleOpenDetail(order);
-                          }
-                        }}
-                      >
-                        Detail
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {activeFilter === "done"
+          ? renderOrderRow(doneOrders)
+          : (
+            <>
+              {renderOrderRow(queuedOrders)}
+              {renderOrderRow(prosesOrders)}
+            </>
+          )}
       </div>
 
-      <OrderDetailModal
+      <OrderDetailKitchenModal
         open={detailModal}
         onClose={handleCloseDetail}
         order={selectedOrder}
+        summary={selectedSummary}
+        onUpdateStatus={(nextStatus) => {
+          if (selectedSummary) {
+            handleUpdateStatus(selectedSummary, nextStatus);
+          }
+        }}
       />
     </div>
   );

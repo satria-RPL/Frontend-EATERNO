@@ -5,6 +5,7 @@ export type CheckoutState = {
   paymentMethod?: string;
   selectedCoupons?: string[];
   cashInput?: string;
+  kitchenNote?: string;
 };
 
 const CHECKOUT_STORAGE_KEY = "eaterno-checkout";

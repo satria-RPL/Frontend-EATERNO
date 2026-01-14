@@ -19,7 +19,12 @@ import {
 } from "@/lib/checkout/storage";
 import { getCoupons } from "@/lib/services/couponService";
 import { fetchOrders } from "@/lib/services/orderService";
-import { createTransaction } from "@/lib/services/transactionService";
+import {
+  createTransaction,
+  fetchTransactionItems,
+  updateTransaction,
+} from "@/lib/services/transactionService";
+import { createKitchenOrderStatus } from "@/lib/services/kitchenOrderService";
 import {
   buildEscPosPayload,
   getSerialApi,
@@ -212,12 +217,16 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
       tableId: resolvedTableId,
       orderType: resolvedOrderType,
       customerName: resolvedCustomerName,
+      note: savedState.kitchenNote?.trim() || null,
       totalItems: itemsCount,
       total: totalAmount,
       tax: taxAmount,
       discount: discountAmount,
       paymentMethodId,
-      items: buildTransactionItems(cart),
+      items: buildTransactionItems(
+        cart,
+        savedState.kitchenNote?.trim() || null
+      ),
     });
 
     if (!result.ok) {
@@ -227,6 +236,25 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
     }
 
     const transactionCode = persistTransactionCode(result.data);
+    const transactionId = resolveTransactionId(result.data);
+    const kitchenNote = savedState.kitchenNote?.trim() || null;
+
+    if (transactionId && kitchenNote) {
+      updateTransaction(transactionId, {
+        note: kitchenNote,
+        kitchenNote,
+      }).catch((error) => {
+        console.warn("Gagal update catatan transaksi", error);
+      });
+    }
+
+    if (transactionId) {
+      createKitchenOrdersForTransaction(transactionId, kitchenNote).catch(
+        (error) => {
+          console.warn("Gagal membuat kitchen order", error);
+        }
+      );
+    }
     clearCart();
     clearCheckoutState();
 
@@ -247,7 +275,7 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
 
     try {
       await openSerialPort(printerPort, baudRate);
-      const payload = buildEscPosPayload(orderForPrint, {
+      const payload = await buildEscPosPayload(orderForPrint, {
         storeName: "Eaterno",
         cashierName: cashierName || undefined,
       });
@@ -419,6 +447,96 @@ function persistTransactionCode(payload: unknown) {
   if (!code) return;
   window.localStorage.setItem("lastTransactionCode", code);
   return code;
+}
+
+type TransactionItemRecord = {
+  id?: number | null;
+  transactionItemId?: number | null;
+  transaction_item_id?: number | null;
+  transactionId?: number | null;
+  transaction_id?: number | null;
+  note?: string | null;
+};
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function resolveTransactionId(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  const data =
+    typeof record.data === "object" && record.data != null
+      ? (record.data as Record<string, unknown>)
+      : record;
+  return toNumber(
+    data.id ?? data.transactionId ?? data.transaction_id ?? null
+  );
+}
+
+function unwrapArray<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (!payload || typeof payload !== "object") return [];
+  const record = payload as Record<string, unknown>;
+  if (Array.isArray(record.data)) return record.data as T[];
+  return [];
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function createKitchenOrdersForTransaction(
+  transactionId: number,
+  fallbackNote: string | null
+) {
+  const attempts = 5;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const itemsResult = await fetchTransactionItems();
+    if (itemsResult.ok) {
+      const items = unwrapArray<TransactionItemRecord>(itemsResult.data);
+      const matched = items.filter(
+        (item) =>
+          toNumber(item.transactionId ?? item.transaction_id) ===
+          transactionId
+      );
+
+      if (matched.length > 0) {
+        await Promise.all(
+          matched.map(async (item) => {
+            const itemId = toNumber(
+              item.transactionItemId ??
+                item.transaction_item_id ??
+                item.id
+            );
+            if (!itemId) return;
+            const note =
+              typeof item.note === "string" && item.note.trim()
+                ? item.note.trim()
+                : fallbackNote;
+            await createKitchenOrderStatus({
+              transactionItemId: itemId,
+              status: "queued",
+              note: note ?? null,
+            });
+          })
+        );
+        return;
+      }
+    }
+
+    if (attempt < attempts - 1) {
+      await sleep(500);
+    }
+  }
 }
 
 

@@ -44,6 +44,9 @@ export default function SidebarRight() {
 
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [selectedCoupons, setSelectedCoupons] = useState<string[]>([]);
+  const [kitchenNote, setKitchenNote] = useState<string>("");
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -80,6 +83,9 @@ export default function SidebarRight() {
     if (saved.paymentMethod) setPaymentMethod(saved.paymentMethod);
     if (Array.isArray(saved.selectedCoupons)) {
       setSelectedCoupons(saved.selectedCoupons);
+    }
+    if (typeof saved.kitchenNote === "string") {
+      setKitchenNote(saved.kitchenNote);
     }
     if (saved.orderType) {
       setOrderType(saved.orderType);
@@ -152,11 +158,91 @@ export default function SidebarRight() {
     router.push(`/main/products/choosetable?${params.toString()}`);
   };
 
+  const noteSuggestions = [
+    "Extra Pedas",
+    "Extra Es",
+    "Less Sugar",
+    "More Sugar",
+  ];
+
+  const openNoteModal = () => {
+    setNoteDraft(kitchenNote);
+    setNoteModalOpen(true);
+  };
+
+  const handleSaveNote = () => {
+    const cleaned = noteDraft.trim();
+    setKitchenNote(cleaned);
+    persistCheckoutState({ kitchenNote: cleaned });
+    setNoteModalOpen(false);
+  };
+
+  const appendSuggestion = (value: string) => {
+    setNoteDraft((prev) => {
+      const trimmed = prev.trim();
+      if (!trimmed) return value;
+      return `${trimmed}, ${value}`;
+    });
+  };
+
   return (
     <>
       {isRouting && (
         <div className="fixed inset-0 z-40 bg-white flex items-center justify-center">
           <Loading variant="request-payment" />
+        </div>
+      )}
+      {noteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-[720px] rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#e6e1dc] pb-4">
+              <h2 className="text-lg font-semibold text-[#f97316]">
+                Tambahkan Catatan Kitchen
+              </h2>
+              <button
+                type="button"
+                className="text-2xl font-semibold text-red-500"
+                onClick={() => setNoteModalOpen(false)}
+                aria-label="Close"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3 text-sm text-[#1c1c1c]">
+              <div>
+                <div className="mb-2 text-xs text-[#6f6f6f]">Suggest</div>
+                <div className="flex flex-wrap gap-2">
+                  {noteSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => appendSuggestion(suggestion)}
+                      className="rounded-md border border-[#f97316] px-3 py-1 text-xs font-semibold text-[#f97316] hover:bg-[#fff3ea]"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <textarea
+                rows={6}
+                value={noteDraft}
+                onChange={(event) => setNoteDraft(event.target.value)}
+                className="w-full rounded-xl border border-[#f97316] px-3 py-2 text-sm outline-none"
+                placeholder="Tulis catatan pesanan..."
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSaveNote}
+              className="mt-5 w-full rounded-lg bg-[#f97316] py-2 text-sm font-semibold text-white hover:opacity-90"
+            >
+              Simpan
+            </button>
+          </div>
         </div>
       )}
       <aside className="fixed top-22 right-0 bottom-0 w-[360px] border-l border-gray-200 bg-stone-50 p-4 flex flex-col overflow-y-auto hide-scrollbar">
@@ -298,93 +384,112 @@ export default function SidebarRight() {
           </div>
         </div>
 
-        {!isPaymentsPage && (
-          <>
+        <>
             {/* PEMBAYARAN VIA */}
-            <div className="bg-white rounded-[20px] px-4 py-2 mb-2">
-              <p className="text-xs font-semibold mb-2">Pembayaran Via</p>
+            {!isPaymentsPage && (
+              <div className="bg-white rounded-[20px] px-4 py-2 mb-2">
+                <p className="text-xs font-semibold mb-2">Pembayaran Via</p>
 
-              <div className="flex flex-wrap gap-2">
-                {paymentOptions.map((m) => (
-                  <button
-                    key={m.value}
-                    onClick={() => {
-                      setPaymentMethod(m.value);
-                      persistCheckoutState({ paymentMethod: m.value });
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-[5px] border text-xs transition ${
-                      paymentMethod === m.value
-                        ? "bg-orange-500 text-white border-orange-500"
-                        : "bg-white text-gray-600 border-gray-200"
-                    }`}
-                  >
-                    {m.icon}
-                    {m.label}
-                  </button>
-                ))}
+                <div className="flex flex-wrap gap-2">
+                  {paymentOptions.map((m) => (
+                    <button
+                      key={m.value}
+                      onClick={() => {
+                        setPaymentMethod(m.value);
+                        persistCheckoutState({ paymentMethod: m.value });
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-[5px] border text-xs transition ${
+                        paymentMethod === m.value
+                          ? "bg-orange-500 text-white border-orange-500"
+                          : "bg-white text-gray-600 border-gray-200"
+                      }`}
+                    >
+                      {m.icon}
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* COUPON DISC */}
-            <div className="bg-white rounded-[20px] px-4 py-2 mb-2">
-              <p className="text-xs font-semibold mb-2">Coupon Disc</p>
+            {!isPaymentsPage && (
+              <div className="bg-white rounded-[20px] px-4 py-2 mb-2">
+                <p className="text-xs font-semibold mb-2">Coupon Disc</p>
 
-              <div className="space-y-2 text-xs">
-                {coupons.map((coupon) => {
-                  const uiState = getCouponUIState(coupon, selectedCoupons);
+                <div className="space-y-2 text-xs">
+                  {coupons.map((coupon) => {
+                    const uiState = getCouponUIState(coupon, selectedCoupons);
 
-                  const iconSrc =
-                    uiState === "selected"
-                      ? "/icon/selected.svg"
-                      : uiState === "expired"
-                      ? "/icon/expired.svg"
-                      : "/icon/available.svg";
+                    const iconSrc =
+                      uiState === "selected"
+                        ? "/icon/selected.svg"
+                        : uiState === "expired"
+                        ? "/icon/expired.svg"
+                        : "/icon/available.svg";
 
-                  return (
-                    <button
-                      key={coupon.id}
-                      disabled={uiState === "expired"}
-                      onClick={() => toggleCoupon(coupon.name)}
-                      className={`group w-full flex justify-between items-center px-3 py-2 rounded-lg font-semibold transition
-            ${
-              uiState === "selected"
-                ? "bg-orange-100 text-orange-600"
-                : uiState === "expired"
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-white border border-gray-200 text-gray-600 hover:bg-orange-50"
-            }
-          `}
-                    >
-                      {/* LEFT ICON + TEXT */}
-                      <span className="flex items-center gap-2">
-                        <Image
-                          src={iconSrc}
-                          width={23}
-                          height={23}
-                          alt={uiState}
-                        />
-                        {coupon.name}
-                      </span>
-
-                      {/* RIGHT RADIO */}
-                      <span
-                        className={`w-4 h-4 rounded-full border transition
+                    return (
+                      <button
+                        key={coupon.id}
+                        disabled={uiState === "expired"}
+                        onClick={() => toggleCoupon(coupon.name)}
+                        className={`group w-full flex justify-between items-center px-3 py-2 rounded-lg font-semibold transition
               ${
                 uiState === "selected"
-                  ? "bg-orange-500 border-orange-500"
+                  ? "bg-orange-100 text-orange-600"
                   : uiState === "expired"
-                  ? "border-gray-300"
-                  : "border-gray-400 group-hover:border-orange-400"
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-white border border-gray-200 text-gray-600 hover:bg-orange-50"
               }
             `}
-                      />
-                    </button>
-                  );
-                })}
+                      >
+                        {/* LEFT ICON + TEXT */}
+                        <span className="flex items-center gap-2">
+                          <Image
+                            src={iconSrc}
+                            width={23}
+                            height={23}
+                            alt={uiState}
+                          />
+                          {coupon.name}
+                        </span>
+
+                        {/* RIGHT RADIO */}
+                        <span
+                          className={`w-4 h-4 rounded-full border transition
+                ${
+                  uiState === "selected"
+                    ? "bg-orange-500 border-orange-500"
+                    : uiState === "expired"
+                    ? "border-gray-300"
+                    : "border-gray-400 group-hover:border-orange-400"
+                }
+              `}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+            )}
+
+            {/* CATATAN KITCHEN */}
+            <div className="bg-white rounded-[20px] px-4 py-3 mb-2">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold">Catatan Kitchen</p>
+                <button
+                  type="button"
+                  onClick={openNoteModal}
+                  className="text-xs font-semibold text-[#f97316]"
+                >
+                  Tambah
+                </button>
+              </div>
+              <p className="text-xs text-[#6f6f6f]">
+                {kitchenNote ? kitchenNote : "Belum ada catatan."}
+              </p>
             </div>
-          </>
-        )}
+        </>
 
         {/* BUTTON PROSES */}
         {!isPaymentsPage && (

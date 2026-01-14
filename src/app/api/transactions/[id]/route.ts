@@ -3,8 +3,21 @@ import { apiRequest } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const result = await apiRequest("/api/kitchen-orders", { auth: true });
+type RouteContext = {
+  params: {
+    id: string;
+  };
+};
+
+export async function PUT(request: Request, context: RouteContext) {
+  const { id } = context.params;
+  const payload = await request.json().catch(() => ({}));
+
+  const result = await apiRequest(`/api/transactions/${id}`, {
+    auth: true,
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 
   if (!result.ok) {
     return NextResponse.json(
@@ -19,18 +32,9 @@ export async function GET() {
   return NextResponse.json(result.data, { status: result.status });
 }
 
-export async function POST(request: Request) {
-  const parsed = await request.json().catch(() => ({}));
-  const payload =
-    parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-
-  const result = await apiRequest("/api/kitchen-orders", {
-    auth: true,
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+export async function GET(_: Request, context: RouteContext) {
+  const { id } = context.params;
+  const result = await apiRequest(`/api/transactions/${id}`, { auth: true });
 
   if (!result.ok) {
     return NextResponse.json(

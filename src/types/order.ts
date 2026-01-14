@@ -1,4 +1,4 @@
-export type OrderStatus = "proses" | "cancel" | "selesai";
+export type OrderStatus = "proses" | "ready_to_pickup" | "selesai" | "cancel";
 
 export type OrderDetailItemOption = {
   label: string;
@@ -10,10 +10,13 @@ export type OrderDetailItem = {
   qty: number;
   price: number;
   options?: OrderDetailItemOption[];
+  note?: string;
 };
 
 export interface Order {
   id: string;
+  transactionId?: number | null;
+  note?: string | null;
   name: string;
   payment: string;
   price: number;

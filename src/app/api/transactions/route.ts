@@ -36,6 +36,12 @@ export async function POST(request: Request) {
       ? payload.createdAt
       : new Date().toISOString();
   const normalizedItems = normalizeTransactionItems(payload?.items);
+  const note =
+    typeof payload?.note === "string" && payload.note.trim()
+      ? payload.note.trim()
+      : typeof payload?.kitchenNote === "string" && payload.kitchenNote.trim()
+      ? payload.kitchenNote.trim()
+      : null;
 
   const enrichedPayload = {
     ...payload,
@@ -49,6 +55,7 @@ export async function POST(request: Request) {
     total_items: payload?.totalItems ?? payload?.total_items ?? null,
     payment_method_id:
       payload?.paymentMethodId ?? payload?.payment_method_id ?? null,
+    note,
     created_at: createdAt,
     items: normalizedItems.length > 0 ? normalizedItems : payload?.items,
   };
@@ -98,6 +105,7 @@ function normalizeTransactionItems(items: unknown): Record<string, unknown>[] {
       const menuId = item.menuId ?? item.menu_id ?? null;
       const qty = item.qty ?? item.quantity ?? null;
       const price = item.price ?? item.unitPrice ?? item.unit_price ?? null;
+      const note = item.note ?? item.kitchenNote ?? null;
       const variants = normalizeVariants(item.variants);
 
       return {
@@ -106,6 +114,7 @@ function normalizeTransactionItems(items: unknown): Record<string, unknown>[] {
         menu_id: menuId,
         qty,
         price,
+        note,
         variants,
       };
     });

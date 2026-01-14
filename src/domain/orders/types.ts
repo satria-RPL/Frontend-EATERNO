@@ -12,4 +12,9 @@ export type OrderSummary = {
   timeAgo: string;
   itemSku?: string;
   itemAddons?: string[];
+  transactionId?: number;
+  transactionItemId?: number;
+  kitchenStatus?: "queued" | "proses" | "done";
+  kitchenNote?: string;
+  kitchenOrderId?: number;
 };

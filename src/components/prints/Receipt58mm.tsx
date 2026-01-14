@@ -1,11 +1,14 @@
 "use client";
 
 import type { Order } from "@/types/order";
+import type { OrderSummary } from "@/domain/orders/types";
+import Image from "next/image";
 
 type Receipt58mmProps = {
   order: Order;
   cashierName?: string;
   storeName?: string;
+  summary?: OrderSummary | null;
 };
 
 function formatCurrency(value: number) {
@@ -34,11 +37,7 @@ function formatDateTime(value: string | null | undefined) {
   return formatted.replace(/\//g, "-");
 }
 
-export default function Receipt58mm({
-  order,
-  cashierName = "-",
-  storeName = "Eaterno",
-}: Receipt58mmProps) {
+export default function Receipt58mm({ order, cashierName = "-", storeName = "Eaterno", summary }: Receipt58mmProps) {
   const detailItems = order.detailItems ?? [];
   const totalItems = detailItems.reduce((sum, item) => sum + item.qty, 0);
   const total = order.price ?? 0;
@@ -56,12 +55,13 @@ export default function Receipt58mm({
   const rounding = subtotal > 0 ? total - totalWithoutRounding : 0;
   const displayDate = formatDateTime(order.createdAt ?? order.date);
   const displayOrderType = formatOrderType(order.orderType);
-  const displayCustomer =
-    order.customerName ?? (order.tableId ? `Table ${order.tableId}` : "-");
+  const displayCustomer = order.customerName ?? (order.tableId ? `Table ${order.tableId}` : "-");
+  const displayNote = summary?.kitchenNote ?? "-";
 
   return (
     <div className="receipt-print text-[10px] text-black font-mono leading-relaxed">
       <div className="text-center mb-2">
+        <Image src="img/brand.png" height={100} width={100} alt="Logo" />
         <p className="text-[12px] font-semibold uppercase">{storeName}</p>
         <p className="text-[10px]">Struk Pembayaran</p>
       </div>
@@ -100,33 +100,35 @@ export default function Receipt58mm({
       {detailItems.length === 0 ? (
         <p className="text-[10px]">Detail item belum tersedia.</p>
       ) : (
-        <div className="space-y-2">
-          {detailItems.map((item, index) => {
-            const linePrice = item.qty * item.price;
-            return (
-              <div key={`${item.name}-${index}`} className="space-y-1">
-                <div className="flex items-start justify-between gap-2">
-                  <span>
-                    {item.qty}x {item.name}
-                  </span>
-                  <span>{formatCurrency(linePrice)}</span>
-                </div>
-                {item.options?.map((option, optIndex) => (
-                  <div
-                    key={`${option.label}-${optIndex}`}
-                    className="flex items-start justify-between gap-2 text-[9px]"
-                  >
-                    <span>+ {option.label}</span>
-                    {typeof option.price === "number" ? (
-                      <span>{formatCurrency(option.price)}</span>
-                    ) : null}
+        <>
+          <div className="space-y-2">
+            {detailItems.map((item, index) => {
+              const linePrice = item.qty * item.price;
+              return (
+                <div key={`${item.name}-${index}`} className="space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span>
+                      {item.qty}x {item.name}
+                    </span>
+                    <span>{formatCurrency(linePrice)}</span>
                   </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+                  {item.options?.map((option, optIndex) => (
+                    <div key={`${option.label}-${optIndex}`} className="flex items-start justify-between gap-2 text-[9px]">
+                      <span>+ {option.label}</span>
+                      {typeof option.price === "number" ? <span>{formatCurrency(option.price)}</span> : null}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
+      
+      <div className="mt-4 border-t border-[#e6e1dc] pt-4 text-sm">
+        <div className="font-semibold text-[#1c1c1c]">Catatan User :</div>
+        <div className="mt-2 text-[#7c7c7c]">{displayNote}</div>
+      </div>
 
       <div className="border-t border-dashed border-black my-2" />
 

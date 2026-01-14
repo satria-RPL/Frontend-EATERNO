@@ -7,6 +7,10 @@ type OrderDetailModalProps = {
   onClose: () => void;
   order: Order | null;
   cashierName?: string;
+  onMarkPickedUp?: (order: Order) => void;
+  onPrintReceipt?: (order: Order) => void;
+  statusError?: string | null;
+  printError?: string | null;
 };
 
 function formatCurrency(value: number) {
@@ -40,6 +44,10 @@ export default function OrderDetailModal({
   onClose,
   order,
   cashierName,
+  onMarkPickedUp,
+  onPrintReceipt,
+  statusError,
+  printError,
 }: OrderDetailModalProps) {
   if (!open || !order) return null;
 
@@ -61,6 +69,23 @@ export default function OrderDetailModal({
   const displayDate = formatDateTime(order.createdAt ?? order.date);
   const displayOrderType = formatOrderType(order.orderType);
   const displayCustomer = order.customerName ?? "-";
+  const isReadyPickup = order.status === "ready_to_pickup";
+  const isDone = order.status === "selesai";
+  const canPrint = isReadyPickup || isDone;
+  const statusLabel = isReadyPickup
+    ? "Ready To Pickup"
+    : isDone
+    ? "Done"
+    : null;
+  const itemNotes = detailItems
+    .map((item) => item.note)
+    .filter((note): note is string => Boolean(note && note.trim()));
+  const displayNote =
+    order.note && order.note.trim()
+      ? order.note.trim()
+      : itemNotes.length > 0
+      ? itemNotes.join(", ")
+      : "-";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -75,7 +100,7 @@ export default function OrderDetailModal({
             type="button"
             aria-label="Close"
           >
-            ×
+            x
           </button>
         </div>
 
@@ -96,6 +121,12 @@ export default function OrderDetailModal({
             <span>Tanggal Jam Transaksi</span>
             <span className="text-[#ff6a00]">{displayDate}</span>
           </div>
+          {statusLabel ? (
+            <div className="flex items-center justify-between">
+              <span>Status Order</span>
+              <span className="text-[#ff6a00]">{statusLabel}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-4 border-t border-[#e6e1dc] pt-4">
@@ -168,6 +199,49 @@ export default function OrderDetailModal({
             </div>
           </div>
         </div>
+
+        <div className="mt-6 border-t border-[#e6e1dc] pt-4 text-sm">
+          <div className="font-semibold text-[#1c1c1c]">Catatan User :</div>
+          <div className="mt-2 text-[#7c7c7c]">{displayNote}</div>
+        </div>
+
+        {statusError ? (
+          <p className="mt-4 text-sm text-red-500">{statusError}</p>
+        ) : null}
+        {printError ? (
+          <p className="mt-2 text-sm text-red-500">{printError}</p>
+        ) : null}
+
+        {canPrint ? (
+          <div className="mt-6 space-y-3">
+            {isReadyPickup ? (
+              <button
+                type="button"
+                onClick={() => onMarkPickedUp?.(order)}
+                disabled={!onMarkPickedUp}
+                className={`w-full rounded-lg py-2 text-sm font-semibold text-white ${
+                  onMarkPickedUp
+                    ? "bg-[#f97316] hover:opacity-90"
+                    : "bg-[#f97316]/60 cursor-not-allowed"
+                }`}
+              >
+                Sudah Di Pickup
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onPrintReceipt?.(order)}
+              disabled={!onPrintReceipt}
+              className={`w-full rounded-lg border py-2 text-sm font-semibold ${
+                onPrintReceipt
+                  ? "border-[#f97316] text-[#f97316] hover:bg-[#fff3ea]"
+                  : "border-[#f97316]/50 text-[#f97316]/60 cursor-not-allowed"
+              }`}
+            >
+              Cetak Struk
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
