@@ -10,6 +10,7 @@ interface VoidModalProps {
   order: Order | null;
   authName?: string;
   authRole?: string;
+  errorMessage?: string | null;
 }
 
 export default function VoidModal({
@@ -19,6 +20,7 @@ export default function VoidModal({
   order,
   authName,
   authRole,
+  errorMessage,
 }: VoidModalProps) {
   const [reason, setReason] = useState("");
   const [customReason, setCustomReason] = useState("");
@@ -32,10 +34,14 @@ export default function VoidModal({
 
   if (!open || !order) return null;
 
+  const finalReason = (reason === "Lainnya" ? customReason : reason).trim();
+  const pinTrimmed = pin.trim();
+  const isReasonReady = Boolean(finalReason);
+  const isPinReady = Boolean(pinTrimmed);
+  const isFormValid = isReasonReady && isPinReady;
+
   const handleSubmit = () => {
-    const finalReason = (reason === "Lainnya" ? customReason : reason).trim();
-    const pinTrimmed = pin.trim();
-    if (!finalReason || !pinTrimmed) return;
+    if (!isFormValid) return;
     onConfirm(finalReason, pinTrimmed);
   };
 
@@ -45,10 +51,12 @@ export default function VoidModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between border-b pb-3">
-          <h2 className="text-lg font-semibold">
-            Void Transaksi {order.id}
-          </h2>
-          <button className="text-xl text-red-500" onClick={onClose} type="button">
+          <h2 className="text-lg font-semibold">Void Transaksi {order.id}</h2>
+          <button
+            className="text-xl text-red-500"
+            onClick={onClose}
+            type="button"
+          >
             ×
           </button>
         </div>
@@ -112,13 +120,16 @@ export default function VoidModal({
             value={pin}
             onChange={(e) => setPin(e.target.value)}
           />
+          {errorMessage && (
+            <p className="mt-2 text-sm text-red-500">{errorMessage}</p>
+          )}
         </div>
 
         <div className="mt-8">
           <button
-            className="w-full rounded-md bg-orange-500 py-2.5 text-sm font-medium text-white transition-all hover:bg-orange-600"
+            className="w-full rounded-md bg-orange-500 py-2.5 text-sm font-medium text-white transition-all enabled:hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600"
             onClick={handleSubmit}
-            disabled={!reason || (reason === "Lainnya" && !customReason) || !pin}
+            disabled={!isFormValid}
             type="button"
           >
             Void

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Clock, RotateCcw } from "lucide-react";
-import { fetchOrders } from "@/lib/services/orderService";
+import { fetchOrders, updateTransactionStatus } from "@/lib/services/orderService";
 import type { Order } from "@/types/order";
 import OrderDetailKitchenModal from "@/components/modals/OrderDetailKitchenModal";
 
@@ -197,6 +197,7 @@ export default function KitchenListClient() {
   ) => {
     const key = getStatusKey(order);
     const previousStatus = getEffectiveStatus(order);
+    const nextOverrides = { ...statusOverrides, [key]: nextStatus };
     setStatusOverrides((prev) => ({
       ...prev,
       [key]: nextStatus,
@@ -212,12 +213,32 @@ export default function KitchenListClient() {
       prev ? { ...prev, kitchenStatus: nextStatus } : prev
     );
 
+    const applyTransactionReady = async () => {
+      if (nextStatus !== "done") return;
+      if (order.transactionId == null) return;
+      const related = orders.filter(
+        (item) => item.transactionId === order.transactionId
+      );
+      if (related.length === 0) return;
+      const allDone = related.every((item) => {
+        const itemKey = getStatusKey(item);
+        const resolved =
+          itemKey === key
+            ? nextStatus
+            : nextOverrides[itemKey] ?? item.kitchenStatus ?? "queued";
+        return resolved === "done";
+      });
+      if (!allDone) return;
+      await updateTransactionStatus(order.transactionId, "ready_to_pickup");
+    };
+
     if (order.kitchenOrderId) {
       const result = await updateKitchenOrderStatus(
         order.kitchenOrderId,
         nextStatus ?? "queued"
       );
       if (result.ok) {
+        await applyTransactionReady();
         loadOrders();
         return;
       }
@@ -244,6 +265,7 @@ export default function KitchenListClient() {
             prev ? { ...prev, kitchenOrderId: createdId } : prev
           );
         }
+        await applyTransactionReady();
         loadOrders();
         return;
       }

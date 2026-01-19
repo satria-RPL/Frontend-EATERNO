@@ -66,16 +66,27 @@ export default function ProductsListClient({
     };
 
     loadOrders();
+    const intervalId = window.setInterval(loadOrders, 15000);
 
     return () => {
       isActive = false;
+      window.clearInterval(intervalId);
     };
   }, [loadKitchenOrders]);
 
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const status = order.transactionStatus ?? "proses";
+        return status !== "selesai" && status !== "cancel";
+      }),
+    [orders]
+  );
+
   const filteredOrders =
     activeFilter === "all"
-      ? orders
-      : orders.filter((order) => order.type === activeFilter);
+      ? visibleOrders
+      : visibleOrders.filter((order) => order.type === activeFilter);
 
   const filteredProducts =
     activeCategory === "all"
@@ -96,7 +107,7 @@ export default function ProductsListClient({
         <ProductsHeader
           activeFilter={activeFilter}
           filters={FILTERS}
-          orders={orders}
+          orders={visibleOrders}
           onChangeFilter={(value) => setActiveFilter(value)}
           onBack={handleBackOrderType}
         />

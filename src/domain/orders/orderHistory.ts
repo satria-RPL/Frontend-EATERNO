@@ -2,7 +2,10 @@ import type { Order } from "@/types/order";
 
 export type OrderHistoryService = {
   fetchOrders: () => Promise<Order[]>;
-  voidOrder: (orderId: string, payload: { reason: string; pin: string }) => Promise<void>;
+  voidOrder: (
+    orderId: string | number,
+    payload: { password: string }
+  ) => Promise<void>;
 };
 
 export function createOrderHistoryActions({
@@ -13,8 +16,13 @@ export function createOrderHistoryActions({
     return fetchOrders();
   }
 
-  async function voidTransaction(orderId: string, reason: string, pin: string) {
-    await voidOrder(orderId, { reason, pin });
+  async function voidTransaction(
+    orderId: string | number,
+    reason: string,
+    pin: string
+  ) {
+    void reason;
+    await voidOrder(orderId, { password: pin });
   }
 
   return { loadOrders, voidTransaction };

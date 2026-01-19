@@ -46,6 +46,7 @@ export default function OrderTable({
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [voidError, setVoidError] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
   const [printerPort, setPrinterPort] = useState<SerialPortLike | null>(null);
   const [printerConnecting, setPrinterConnecting] = useState(false);
@@ -135,6 +136,7 @@ export default function OrderTable({
 
   const handleOpenVoid = (order: Order) => {
     setSelectedOrder(order);
+    setVoidError(null);
     setVoidModal(true);
   };
 
@@ -159,11 +161,27 @@ export default function OrderTable({
   const handleConfirmVoid = async (reason: string, pin: string) => {
     if (!selectedOrder) return;
 
-    await voidTransaction(selectedOrder.id, reason, pin);
-    const updated = await loadOrders();
-    setOrders(updated);
-    setVoidModal(false);
-    setSelectedOrder(null);
+    setVoidError(null);
+    const resolvedId =
+      selectedOrder.transactionId ??
+      Number(selectedOrder.id.replace(/\D/g, ""));
+
+    if (!Number.isFinite(resolvedId) || resolvedId <= 0) {
+      setVoidError("ID transaksi tidak ditemukan.");
+      return;
+    }
+
+    try {
+      await voidTransaction(resolvedId, reason, pin);
+      const updated = await loadOrders();
+      setOrders(updated);
+      setVoidModal(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      setVoidError(
+        error instanceof Error ? error.message : "Gagal void transaksi."
+      );
+    }
   };
 
   const handleMarkPickedUp = async (order: Order) => {
@@ -248,11 +266,13 @@ export default function OrderTable({
                 </td>
               </tr>
             )}
-            {paged.map((order, index) => (
-              <tr
-                key={order.id}
-                className="border-b border-[#f2e8e0] even:bg-[#fdeee6]"
-              >
+            {paged.map((order, index) => {
+              const canVoid = order.status === "proses";
+              return (
+                <tr
+                  key={order.id}
+                  className="border-b border-[#f2e8e0] even:bg-[#fdeee6]"
+                >
                 <td className="px-4 py-3 text-center">
                   {(page - 1) * perPage + index + 1}
                 </td>
@@ -302,14 +322,15 @@ export default function OrderTable({
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2">
                     <button
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#ef4444] text-white transition hover:opacity-90"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#ef4444] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                       title="Delete"
                       type="button"
-                      onClick={() =>
-                        order.status === "proses"
-                          ? handleOpenVoid(order)
-                          : setOrders(orders.filter((x) => x.id !== order.id))
-                      }
+                      disabled={!canVoid}
+                      onClick={() => {
+                        if (canVoid) {
+                          handleOpenVoid(order);
+                        }
+                      }}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -323,8 +344,9 @@ export default function OrderTable({
                     </button>
                   </div>
                 </td>
-              </tr>
-            ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -351,6 +373,7 @@ export default function OrderTable({
         order={selectedOrder}
         authName={authName}
         authRole={authRole}
+        errorMessage={voidError}
       />
 
       <OrderDetailModal

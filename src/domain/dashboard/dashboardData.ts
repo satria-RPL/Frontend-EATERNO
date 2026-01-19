@@ -59,6 +59,26 @@ const SERIES_COLORS = [
   "#A855F7",
 ];
 
+function pickFirst(...values: unknown[]) {
+  for (const value of values) {
+    if (value == null) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    return value;
+  }
+  return null;
+}
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function toDayKey(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -96,8 +116,7 @@ function buildEmptyShiftMetrics(): ShiftStatsMetrics {
   };
 }
 
-function sumTransactionItemsTotal(record: Record<string, unknown>) {
-  const items = resolveTransactionItems(record);
+function sumItemTotals(items: Record<string, unknown>[]) {
   return items.reduce((sum, item) => {
     const qty = resolveItemQty(item);
     if (qty <= 0) return sum;
@@ -105,6 +124,52 @@ function sumTransactionItemsTotal(record: Record<string, unknown>) {
     if (total <= 0) return sum;
     return sum + total;
   }, 0);
+}
+
+function sumTransactionItemsTotal(record: Record<string, unknown>) {
+  return sumItemTotals(resolveTransactionItems(record));
+}
+
+function resolveTransactionTotal(
+  record: Record<string, unknown>,
+  fallbackSubtotal?: number
+) {
+  const total = toNumber(
+    pickFirst(
+      record.total,
+      record.grandTotal,
+      record.grand_total,
+      record.totalPrice,
+      record.total_price,
+      record.totalAmount,
+      record.total_amount,
+      record.totalPayment,
+      record.total_payment,
+      record.finalTotal,
+      record.final_total,
+      record.amount,
+      record.paidAmount,
+      record.paid_amount
+    )
+  );
+  if (total != null && total > 0) return total;
+
+  const subtotal = toNumber(
+    pickFirst(record.subtotal, record.subTotal, record.sub_total)
+  );
+  const tax = toNumber(
+    pickFirst(record.tax, record.taxTotal, record.tax_total)
+  );
+  const discount = toNumber(
+    pickFirst(record.discount, record.totalDiscount, record.total_discount)
+  );
+  if (subtotal != null || tax != null || discount != null) {
+    const base = subtotal ?? fallbackSubtotal ?? sumTransactionItemsTotal(record);
+    const computed = base + (tax ?? 0) - (discount ?? 0);
+    if (computed > 0) return computed;
+  }
+
+  return fallbackSubtotal ?? sumTransactionItemsTotal(record);
 }
 
 export function buildDashboardData({
@@ -130,14 +195,14 @@ export function buildDashboardData({
       if (createdAt == null || createdAt < openedAtMs) return;
 
       const status = normalizeStatus(transaction.status);
-      if (status === "proses") {
-        shiftMetrics.inProcess += 1;
+      if (status === "selesai") {
+        shiftMetrics.success += 1;
+        shiftMetrics.income += resolveTransactionTotal(transaction);
         return;
       }
-      if (status !== "selesai") return;
-
-      shiftMetrics.success += 1;
-      shiftMetrics.income += sumTransactionItemsTotal(transaction);
+      if (status === "proses" || status === "ready_to_pickup") {
+        shiftMetrics.inProcess += 1;
+      }
     });
   }
 
@@ -146,28 +211,45 @@ export function buildDashboardData({
   const days = buildRecentDays(dayCount);
   const dayIndexMap = new Map(days.map((day, index) => [day.key, index]));
   const daySellingData = days.map((day) => ({ day: day.label })) as DaySellingData[];
+  let totalBalanceIncome = 0;
 
   transactions.forEach((transaction) => {
-    if (normalizeStatus(transaction.status) !== "selesai") return;
+    const status = normalizeStatus(transaction.status);
+    if (status !== "selesai") return;
 
     const items = resolveTransactionItems(transaction);
+    const itemsSubtotal = sumItemTotals(items);
+    const transactionTotal = resolveTransactionTotal(
+      transaction,
+      itemsSubtotal
+    );
+    if (transactionTotal > 0) {
+      totalBalanceIncome += transactionTotal;
+    }
+
     if (items.length === 0) return;
 
     const createdAt = resolveTransactionDate(transaction);
     const dayKey = createdAt != null ? toDayKey(new Date(createdAt)) : null;
     const dayIndex = dayKey ? dayIndexMap.get(dayKey) : null;
+    const adjustment = transactionTotal - itemsSubtotal;
 
     items.forEach((item) => {
       const qty = resolveItemQty(item);
       if (qty <= 0) return;
       const total = resolveItemTotal(item, qty);
       if (total <= 0) return;
+      const adjustedTotal =
+        itemsSubtotal > 0
+          ? total + (total / itemsSubtotal) * adjustment
+          : total;
+      const finalTotal = Math.max(0, adjustedTotal);
 
       const meta = resolveCategoryMeta(item, lookup);
       const existing = incomeTotals.get(meta.key);
       incomeTotals.set(meta.key, {
         label: meta.label,
-        value: (existing?.value ?? 0) + total,
+        value: (existing?.value ?? 0) + finalTotal,
       });
 
       if (dayIndex == null) return;
@@ -186,10 +268,6 @@ export function buildDashboardData({
     .filter((entry) => entry.value > 0)
     .sort((a, b) => b.value - a.value)
     .map((entry) => ({ name: entry.label, value: entry.value }));
-  const totalBalanceIncome = totalIncomeData.reduce(
-    (sum, entry) => sum + entry.value,
-    0
-  );
 
   const daySellingSeries = Array.from(dayTotals.entries())
     .map(([key, value]) => ({ key, label: value.label, total: value.total }))

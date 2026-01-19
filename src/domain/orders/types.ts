@@ -1,3 +1,5 @@
+import type { OrderStatus } from "@/types/order";
+
 export type OrderFilter = "all" | "dinein" | "takeaway";
 
 export type OrderSummary = {
@@ -14,6 +16,7 @@ export type OrderSummary = {
   itemAddons?: string[];
   transactionId?: number;
   transactionItemId?: number;
+  transactionStatus?: OrderStatus;
   kitchenStatus?: "queued" | "proses" | "done";
   kitchenNote?: string;
   kitchenOrderId?: number;

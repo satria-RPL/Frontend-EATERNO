@@ -4,6 +4,8 @@ import { getAuthCookiePayload } from "@/lib/session/authSession";
 
 export const dynamic = "force-dynamic";
 
+
+
 export async function GET() {
   const result = await apiRequest("/api/transactions", { auth: true });
 
@@ -26,7 +28,6 @@ export async function POST(request: Request) {
     parsed && typeof parsed === "object" && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : {};
-  console.log("payload:", JSON.stringify(payload, null, 2));
 
   const authPayload = await getAuthCookiePayload();
   const cashierId =

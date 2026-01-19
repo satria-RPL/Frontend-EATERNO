@@ -8,6 +8,7 @@
     "start": "next start -p 3001 --turbopack",
     "lint": "eslint"
   },
+  
   "dependencies": {
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindplus/elements": "^1.0.18",

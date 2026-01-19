@@ -165,7 +165,8 @@ export function buildBestSellersFromTransactions(
   transactions.forEach((transaction) => {
     const record = asRecord(transaction);
     if (!record) return;
-    if (normalizeStatus(record.status) !== "selesai") return;
+    const status = normalizeStatus(record.status);
+    if (status !== "selesai") return;
 
     const transactionItems = resolveTransactionItems(
       record as TransactionRecord

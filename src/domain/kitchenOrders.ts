@@ -1,4 +1,5 @@
 import type { OrderSummary } from "@/domain/orders/types";
+import { normalizeStatus } from "@/domain/transactions/normalizeStatus";
 
 type KitchenOrderApiItem = Record<string, unknown>;
 type ApiResult<T = unknown> =
@@ -61,6 +62,36 @@ function toTimestamp(value: unknown): number | null {
   if (typeof value !== "string") return null;
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function resolveTransactionStatus(transaction: Record<string, unknown> | null) {
+  if (!transaction) return null;
+  return pickFirst(
+    transaction.status,
+    transaction.transactionStatus,
+    transaction.transaction_status
+  );
+}
+
+function resolveOrderStatus(
+  item: Record<string, unknown>,
+  transaction: Record<string, unknown> | null
+) {
+  return normalizeStatus(
+    pickFirst(
+      transaction?.status,
+      transaction?.transactionStatus,
+      transaction?.transaction_status,
+      item.status,
+      item.transactionStatus,
+      item.transaction_status
+    )
+  );
+}
+
+function isCancelledTransaction(transaction: Record<string, unknown> | null) {
+  if (!transaction) return false;
+  return normalizeStatus(resolveTransactionStatus(transaction)) === "cancel";
 }
 
 function unwrapArray<T>(payload: unknown): T[] {
@@ -572,6 +603,7 @@ function mapKitchenOrdersGrouped(payload: unknown): OrderSummary[] {
     const transaction = asRecord(
       pickFirst(record.transaction, transactionItem?.transaction, record.order)
     );
+    if (isCancelledTransaction(transaction)) return;
 
     const groupIdRaw = pickFirst(
       transaction?.id,
@@ -621,6 +653,7 @@ function mapKitchenOrdersGrouped(payload: unknown): OrderSummary[] {
       itemAddons: resolveItemAddons(record, transactionItem),
       transactionId: resolveTransactionId(record, transaction),
       transactionItemId: resolveTransactionItemId(record, transactionItem),
+      transactionStatus: resolveOrderStatus(record, transaction),
       kitchenStatus: resolveKitchenStatus(record, transactionItem, transaction),
       kitchenNote: resolveKitchenNote(record, transactionItem, transaction),
     };
@@ -663,6 +696,7 @@ function mapKitchenOrdersSplit(payload: unknown): OrderSummary[] {
     const transaction = asRecord(
       pickFirst(record.transaction, transactionItem?.transaction, record.order)
     );
+    if (isCancelledTransaction(transaction)) return;
 
     const idRaw = pickFirst(
       transaction?.id,
@@ -703,6 +737,7 @@ function mapKitchenOrdersSplit(payload: unknown): OrderSummary[] {
       itemAddons: resolveItemAddons(record, transactionItem),
       transactionId: resolveTransactionId(record, transaction),
       transactionItemId: resolveTransactionItemId(record, transactionItem),
+      transactionStatus: resolveOrderStatus(record, transaction),
       kitchenStatus: resolveKitchenStatus(record, transactionItem, transaction),
       kitchenNote: resolveKitchenNote(record, transactionItem, transaction),
     };

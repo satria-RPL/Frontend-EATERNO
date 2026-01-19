@@ -199,17 +199,32 @@ export async function fetchOrders(): Promise<Order[]> {
 }
 
 export async function voidOrder(
-  orderId: string,
-  payload: { reason: string; pin: string }
+  orderId: string | number,
+  payload: { password: string }
 ) {
-  const res = await fetch(`/api/orders/${orderId}/void`, {
+  const resolvedId =
+    typeof orderId === "number"
+      ? orderId
+      : Number(String(orderId).replace(/\D/g, ""));
+
+  if (!Number.isFinite(resolvedId) || resolvedId <= 0) {
+    throw new Error("ID transaksi tidak valid");
+  }
+
+  const res = await fetch(`/api/transactions/void/${resolvedId}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
+    credentials: "include",
   });
 
+  const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(`Void gagal (${res.status})`);
+    const message =
+      data && typeof data === "object" && "message" in data
+        ? String((data as { message?: unknown }).message)
+        : `Void gagal (${res.status})`;
+    throw new Error(message);
   }
 }
 

@@ -24,6 +24,9 @@ export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
         const headerMeta = getHeaderMeta(order);
         const typeLabel =
           order.type === "dinein" ? "Dine In" : "Take Away";
+        const status = order.transactionStatus ?? "proses";
+        const statusLabel =
+          status === "ready_to_pickup" ? "Ready to Pickup" : "Proses";
         const bodyColor =
           order.type === "dinein"
             ? "var(--kichencard_dinein1)"
@@ -74,7 +77,7 @@ export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
                   className="h-6 rounded-full px-4 text-[11px] font-semibold text-white flex items-center hover:opacity-90"
                   style={{ backgroundColor: buttonColor }}
                 >
-                  Proses
+                  {statusLabel}
                 </span>
               </div>
             </div>

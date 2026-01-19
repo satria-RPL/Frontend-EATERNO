@@ -9,7 +9,14 @@ export function usePersistentBoolean(key: string, initial: boolean) {
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem(key);
     if (saved !== null) {
-      setValue(JSON.parse(saved));
+      try {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed === "boolean") {
+          setValue(parsed);
+        }
+      } catch {
+        // Ignore invalid storage values and keep the current state.
+      }
     }
   }, [key]);
 

@@ -54,7 +54,8 @@ export function middleware(request: NextRequest) {
   }
 
   const isAuthRoute = pathname.startsWith("/auth");
-  const isProtectedRoute = pathname.startsWith("/main");
+  const isPublicShiftRoute = pathname.startsWith("/public/shift");
+  const isProtectedRoute = pathname.startsWith("/main") || isPublicShiftRoute;
 
   const loggedIn = hasValidToken(request);
   const role = parseRole(request.cookies.get(AUTH_COOKIE)?.value ?? null);
@@ -70,7 +71,12 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  if (loggedIn && isChef && isProtectedRoute && !pathname.startsWith("/main/kitchen")) {
+  if (
+    loggedIn &&
+    isChef &&
+    isProtectedRoute &&
+    !pathname.startsWith("/main/kitchen")
+  ) {
     return NextResponse.redirect(new URL("/main/kitchen", request.url));
   }
 
@@ -78,5 +84,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/auth/:path*", "/main/:path*"],
+  matcher: ["/auth/:path*", "/main/:path*", "/public/shift/:path*"],
 };
