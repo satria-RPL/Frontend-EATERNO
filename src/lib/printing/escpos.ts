@@ -76,12 +76,15 @@ export async function buildEscPosPayload(order: Order, options: ReceiptOptions =
   const displayCustomer = order.customerName ?? (order.tableId ? `Table ${order.tableId}` : "-");
   const itemNotes = detailItems.map((item) => item.note).filter((note): note is string => Boolean(note && note.trim()));
   const displayNote = order.note && order.note.trim() ? order.note.trim() : itemNotes.length > 0 ? itemNotes.join(", ") : null;
+  const displayQueue =
+    order.queueNumber != null ? String(order.queueNumber) : "-";
 
   const lines: string[] = [];
   lines.push(centerText(storeName.toUpperCase(), width));
   lines.push(centerText("Struk Pembayaran", width));
   lines.push(divider);
   lines.push(formatLine("No. Struk", order.id, width));
+  lines.push(formatLine("Antrian", displayQueue, width));
   lines.push(formatLine("Tanggal", displayDate, width));
   lines.push(formatLine("Kasir", cashierName, width));
   lines.push(formatLine("Pelanggan", displayCustomer, width));

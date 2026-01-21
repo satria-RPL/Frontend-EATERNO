@@ -55,28 +55,53 @@ export function middleware(request: NextRequest) {
 
   const isAuthRoute = pathname.startsWith("/auth");
   const isPublicShiftRoute = pathname.startsWith("/public/shift");
-  const isProtectedRoute = pathname.startsWith("/main") || isPublicShiftRoute;
+  const isMainRoute = pathname.startsWith("/main");
+  const isWaiterRoute = pathname.startsWith("/waiters");
 
   const loggedIn = hasValidToken(request);
   const role = parseRole(request.cookies.get(AUTH_COOKIE)?.value ?? null);
   const isChef = role.includes("chef");
+  const isOwner = role.includes("owner");
+  const isWaiter = role.includes("waiter");
+  const isKitchenRole = isChef || isOwner;
 
-  if (!loggedIn && isProtectedRoute) {
+  if (!loggedIn && (isMainRoute || isWaiterRoute)) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
   if (loggedIn && isAuthRoute) {
     return NextResponse.redirect(
-      new URL(isChef ? "/main/kitchen" : "/main/dashboard", request.url)
+      new URL(
+        isWaiter
+          ? "/waiters"
+          : isChef
+          ? "/main/kitchen"
+          : "/main/dashboard",
+        request.url
+      )
     );
+  }
+
+  if (loggedIn && isWaiter && isMainRoute) {
+    return NextResponse.redirect(new URL("/waiters", request.url));
   }
 
   if (
     loggedIn &&
-    isChef &&
-    isProtectedRoute &&
-    !pathname.startsWith("/main/kitchen")
+    isMainRoute &&
+    pathname.startsWith("/main/kitchen") &&
+    !isKitchenRole
   ) {
+    return NextResponse.redirect(new URL("/main/dashboard", request.url));
+  }
+
+  if (loggedIn && !isWaiter && isWaiterRoute) {
+    return NextResponse.redirect(
+      new URL(isChef ? "/main/kitchen" : "/main/dashboard", request.url)
+    );
+  }
+
+  if (loggedIn && isChef && isMainRoute && !pathname.startsWith("/main/kitchen")) {
     return NextResponse.redirect(new URL("/main/kitchen", request.url));
   }
 
@@ -84,5 +109,6 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/auth/:path*", "/main/:path*", "/public/shift/:path*"],
+  matcher: ["/auth/:path*", "/main/:path*", "/public/shift/:path*", "/waiters/:path*"]
 };
+

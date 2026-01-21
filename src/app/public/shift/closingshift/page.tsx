@@ -27,18 +27,20 @@ export default function ClosingShiftPage() {
   };
 
   return (
-    <div className="flex flex-col justify-center py-10">
-      <div className="flex flex-col justify-between w-full gap-20 px-48">
-        <h2 className="text-4xl font-medium text-center mb-4">Closing Shift</h2>
+    <div className="flex flex-col justify-center py-8 sm:py-10">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 sm:px-8 lg:px-24 xl:px-32">
+        <h2 className="mb-2 text-center text-3xl font-medium sm:text-4xl">
+          Closing Shift
+        </h2>
 
-        <label className="flex justify-start text-center mb-2 font-medium text-3xl">
+        <label className="mb-2 text-left text-2xl font-medium sm:text-3xl">
           Total Uang Terakhir
         </label>
 
         <input
           type="text"
           inputMode="numeric"
-          className="border border-gray-300 rounded-lg px-4 py-2 w-full mb-6"
+          className="w-full rounded-lg border border-gray-300 px-4 py-2"
           placeholder="Rp"
           required
           value={formatCashInput(amount)}
@@ -47,10 +49,10 @@ export default function ClosingShiftPage() {
 
         <button
           type="button"
-          className={`w-full py-3 rounded-lg font-medium text-white transition ${
+          className={`w-full rounded-lg py-3 font-medium text-white transition ${
             amount
               ? "bg-orange-500 hover:bg-orange-600"
-              : "bg-gray-300 cursor-not-allowed"
+              : "cursor-not-allowed bg-gray-300"
           }`}
           disabled={!amount}
           onClick={handleContinue}

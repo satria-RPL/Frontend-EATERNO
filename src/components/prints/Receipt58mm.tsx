@@ -57,6 +57,8 @@ export default function Receipt58mm({ order, cashierName = "-", storeName = "Eat
   const displayOrderType = formatOrderType(order.orderType);
   const displayCustomer = order.customerName ?? (order.tableId ? `Table ${order.tableId}` : "-");
   const displayNote = summary?.kitchenNote ?? "-";
+  const displayQueue =
+    order.queueNumber != null ? String(order.queueNumber) : "-";
 
   return (
     <div className="receipt-print text-[10px] text-black font-mono leading-relaxed">
@@ -72,6 +74,10 @@ export default function Receipt58mm({ order, cashierName = "-", storeName = "Eat
         <div className="flex justify-between gap-2">
           <span>No. Struk</span>
           <span>{order.id}</span>
+        </div>
+        <div className="flex justify-between gap-2">
+          <span>Antrian</span>
+          <span>{displayQueue}</span>
         </div>
         <div className="flex justify-between gap-2">
           <span>Tanggal</span>

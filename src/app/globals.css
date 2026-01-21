@@ -27,10 +27,10 @@
   --background-dark: #1f1f1f;
   --background: #f4f4f4;
   --background-secondary: #B0B0B0;
-  --kichencard_dinein1: #00AE3A;
-  --kichencard_dinein2: #DB2D2D;
-  --kichencard_takeaway: #F4DE15;
-  --kichencard_takeaway2: #EB5714;
+  --kitchencard_takeaway: #0017AE;
+  --kitchencard_dinein: #F4DE15;
+  --kitchencard_done: #00AE3A;  
+  
 }
 
 @theme {

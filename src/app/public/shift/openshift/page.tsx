@@ -62,7 +62,12 @@ export default function OpenShiftPage() {
   const amountNumber = Number(amount);
   const isAmountValid = !Number.isNaN(amountNumber) && amountNumber > 0;
   const occupiedStationSet = new Set(occupiedStationIds);
-  const isStationOccupied = station !== "" && occupiedStationSet.has(station);
+  const isStationOccupied =
+    station !== "" &&
+    (occupiedStationSet.has(station) ||
+      stationOptions.some(
+        (option) => option.value === station && option.id && occupiedStationSet.has(option.id)
+      ));
 
   const isFormValid =
     shift !== "" && station !== "" && isAmountValid && !isStationOccupied;
@@ -156,33 +161,12 @@ export default function OpenShiftPage() {
   }, []);
 
   useEffect(() => {
-    const cachedStations = readCachedStations();
-    if (cachedStations) {
-      setStationOptions(cachedStations);
-      setStationLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
     const cachedShifts = readCachedShifts();
     if (cachedShifts) {
       setShiftOptions(cachedShifts);
       setShiftLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    if (!stationLoading) return;
-    const timeoutId = window.setTimeout(() => {
-      if (!isMountedRef.current) return;
-      setStationLoading(false);
-      if (!stationError && stationOptions.length === 0) {
-        setStationError("Gagal mengambil data station");
-      }
-    }, 6000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [stationLoading, stationError, stationOptions.length]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -202,45 +186,52 @@ export default function OpenShiftPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const loadStations = useCallback(async (showLoading = true) => {
-    const cachedStations = readCachedStations();
-    const shouldShowLoading =
-      showLoading && (!cachedStations || cachedStations.length === 0);
-    if (shouldShowLoading) {
+  useEffect(() => {
+    let isActive = true;
+
+    const loadStations = async () => {
       setStationLoading(true);
-    }
-    setStationError(null);
-    setStationNotice(null);
+      setStationError(null);
+      setStationNotice(null);
 
-    let stationResult: { options: StationOption[]; error: string | null };
+      try {
+        const result = await loadStationOptions();
+        if (!isActive) return;
 
-    try {
-      stationResult = await loadStationOptions();
-    } catch {
-      if (!isMountedRef.current) return;
-      setStationOptions([]);
-      setStation("");
-      setStationError("Gagal mengambil data station");
-      if (shouldShowLoading) setStationLoading(false);
+        setStationOptions(result.options);
+        setStation((current) =>
+          result.options.some((option) => option.value === current)
+            ? current
+            : ""
+        );
+        setStationError(result.error);
+      } catch {
+        if (!isActive) return;
+        setStationOptions([]);
+        setStation("");
+        setStationError("Gagal mengambil data station");
+      } finally {
+        if (isActive) setStationLoading(false);
+      }
+    };
+
+    loadStations();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const loadOccupiedStations = useCallback(async () => {
+    if (stationOptions.length === 0) {
+      setOccupiedStationIds([]);
       return;
     }
-
-    if (!isMountedRef.current) return;
-    setStationOptions(stationResult.options);
-    writeCachedStations(stationResult.options);
-    setStation((current) =>
-      stationResult.options.some((option) => option.value === current)
-        ? current
-        : ""
-    );
-    setStationError(stationResult.error);
-    if (shouldShowLoading) setStationLoading(false);
 
     try {
       const statusResult = await withTimeoutSignal(3500, (signal) =>
         loadOccupiedStationIds({ cache: "no-store", signal })
       );
-      if (!isMountedRef.current) return;
 
       if (!statusResult.ok) {
         setOccupiedStationIds([]);
@@ -250,36 +241,78 @@ export default function OpenShiftPage() {
 
       const occupiedIds = statusResult.occupiedIds;
       const occupiedSet = new Set(occupiedIds);
+      const occupiedInListCount = stationOptions.reduce((count, option) => {
+        const isOccupied =
+          occupiedSet.has(option.value) ||
+          (option.id && occupiedSet.has(option.id));
+        return count + (isOccupied ? 1 : 0);
+      }, 0);
       setOccupiedStationIds(occupiedIds);
       setStation((current) =>
-        current && occupiedSet.has(current) ? "" : current
+        current &&
+        (occupiedSet.has(current) ||
+          stationOptions.some(
+            (option) =>
+              option.value === current &&
+              option.id &&
+              occupiedSet.has(option.id)
+          ))
+          ? ""
+          : current
       );
 
       if (
-        stationResult.options.length > 0 &&
-        occupiedIds.length >= stationResult.options.length
+        stationOptions.length > 0 &&
+        occupiedInListCount >= stationOptions.length
       ) {
         setStationNotice("Semua station sedang dipakai");
       }
     } catch {
-      if (!isMountedRef.current) return;
       setOccupiedStationIds([]);
       setStationNotice("Gagal memuat status station aktif");
     }
-  }, []);
+  }, [stationOptions]);
 
   useEffect(() => {
-    loadStations(true);
-  }, [loadStations]);
+    let isActive = true;
+
+    const run = async () => {
+      if (!isActive) return;
+      await loadOccupiedStations();
+    };
+
+    run();
+
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) {
+        run();
+      }
+    }, 2000);
+
+    const handleFocus = () => run();
+    const handleVisibility = () => {
+      if (!document.hidden) run();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [loadOccupiedStations]);
 
   useEffect(() => {
     if (isStationOpen) {
-      loadStations(false);
+      loadOccupiedStations();
     }
-  }, [isStationOpen, loadStations]);
+  }, [isStationOpen, loadOccupiedStations]);
 
   return (
-    <div className="w-full mx-auto pt-10 gap-10 flex flex-col px-48">
+    <div className="w-full mx-auto pt-8 gap-8 flex flex-col px-4 sm:px-8 lg:px-24 xl:px-48 max-w-5xl">
       {/* Shift */}
       <div className="mb-6">
         <label className="block mb-5 text-xl font-medium">Shift</label>
@@ -370,9 +403,6 @@ export default function OpenShiftPage() {
           <button
             type="button"
             onClick={() => {
-              if (stationLoading) {
-                loadStations(true);
-              }
               setIsStationOpen((prev) => !prev);
               setIsShiftOpen(false);
             }}
@@ -408,7 +438,9 @@ export default function OpenShiftPage() {
                   <ul className="divide-y divide-gray-100">
                     {stationOptions.map((option) => {
                       const isSelected = option.value === station;
-                      const isOccupied = occupiedStationSet.has(option.value);
+                      const isOccupied =
+                        occupiedStationSet.has(option.value) ||
+                        (option.id && occupiedStationSet.has(option.id));
                       return (
                         <li key={option.value}>
                           <button
@@ -454,13 +486,6 @@ export default function OpenShiftPage() {
         {stationError && (
           <div className="mt-2 flex items-center gap-3 text-sm text-red-500">
             <span>{stationError}</span>
-            <button
-              type="button"
-              onClick={() => loadStations(true)}
-              className="text-orange-600 hover:text-orange-700"
-            >
-              Muat ulang
-            </button>
           </div>
         )}
         {!stationError && isStationOccupied && (
@@ -525,17 +550,8 @@ function persistPlaceId(placeId: string) {
   window.localStorage.setItem("eaterno-place-id", placeId);
 }
 
-const STATION_CACHE_KEY = "eaterno-stations-cache";
 const SHIFT_CACHE_KEY = "eaterno-shifts-cache";
 const OPTIONS_CACHE_TTL_MS = 5 * 60 * 1000;
-
-function readCachedStations(): StationOption[] | null {
-  return readCachedOptions<StationOption>(STATION_CACHE_KEY);
-}
-
-function writeCachedStations(options: StationOption[]) {
-  writeCachedOptions(STATION_CACHE_KEY, options);
-}
 
 function readCachedShifts(): ShiftOption[] | null {
   return readCachedOptions<ShiftOption>(SHIFT_CACHE_KEY);

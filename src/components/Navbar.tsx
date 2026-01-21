@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { LogOut } from "lucide-react";
 import HistoryOrderSearchBar from "@/components/HistoryOrderSearchBar";
 
 type NavbarProps = {
@@ -9,6 +10,8 @@ type NavbarProps = {
   role?: string;
   avatarUrl?: string;
   onNotificationClick?: () => void;
+  showLogout?: boolean;
+  showSearch?: boolean;
 };
 
 export default function Navbar({
@@ -16,6 +19,8 @@ export default function Navbar({
   role,
   avatarUrl = "/img/profil.png",
   onNotificationClick,
+  showLogout = false,
+  showSearch = true,
 }: NavbarProps) {
   const [timeLabel, setTimeLabel] = useState(
     new Date().toLocaleTimeString("id-ID", {
@@ -142,11 +147,26 @@ export default function Navbar({
   const hasUnread = notifItems.some((item) => !item.isRead);
   const firstReadIndex = notifItems.findIndex((item) => item.isRead);
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      window.location.href = "/auth/login";
+    }
+  };
+
   return (
     <nav className="fixed top-0 z-50 w-full bg-white text-(--color-text-body) shadow-sm">
-      <div className="mx-auto flex max-w-full items-center justify-between px-8 py-3">
-        <div className="flex h-16 w-full items-center justify-between gap-6">
-          <div className="flex items-center gap-20">
+      <div className="mx-auto flex max-w-full items-center justify-between px-4 py-3 sm:px-8">
+        <div className="flex h-16 w-full items-center justify-between gap-4 sm:gap-6">
+          <div
+            className={`flex items-center ${
+              showSearch ? "gap-6 sm:gap-20" : "gap-4"
+            }`}
+          >
             <div className="text-lg font-bold text-(--color-text-header)">
               <Image
                 src="/img/brand.png"
@@ -155,10 +175,10 @@ export default function Navbar({
                 alt="Eaterno brand"
               />
             </div>
-            <HistoryOrderSearchBar />
+            {showSearch ? <HistoryOrderSearchBar /> : null}
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-3 sm:gap-5">
             <div className="relative">
               <button
                 type="button"
@@ -256,6 +276,17 @@ export default function Navbar({
                 {role} {timeLabel}
               </div>
             </div>
+            {showLogout && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-500 text-white transition hover:bg-red-600"
+                aria-label="Logout"
+                title="Logout"
+              >
+                <LogOut size={20} />
+              </button>
+            )}
           </div>
         </div>
       </div>

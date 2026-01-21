@@ -24,6 +24,8 @@ async function closeOpenShiftIfNeeded() {
     const authPayload = await getAuthCookiePayload();
     const cashierId = toNumber(authPayload?.userId);
     if (!cashierId) return;
+    const role = normalizeRole(authPayload?.role);
+    if (role.includes("waiter")) return;
 
     const shiftsResult = await apiRequest("/api/cashier-shifts", { auth: true });
     if (!shiftsResult.ok) return;
@@ -43,6 +45,22 @@ async function closeOpenShiftIfNeeded() {
   } catch {
     // Best-effort close: do not block logout if the API fails.
   }
+}
+
+function normalizeRole(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value.toLowerCase();
+  if (typeof value === "object") {
+    const record = value as {
+      name?: unknown;
+      description?: unknown;
+      role?: unknown;
+    };
+    const resolved =
+      record.name ?? record.description ?? record.role ?? "";
+    return typeof resolved === "string" ? resolved.toLowerCase() : "";
+  }
+  return "";
 }
 
 function unwrapArray<T>(payload: unknown): T[] {

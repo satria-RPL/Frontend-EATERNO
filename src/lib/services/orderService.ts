@@ -115,6 +115,54 @@ function resolveTransactionCode(tx: Transaction): string {
   return value.startsWith("#") ? value : `#${value}`;
 }
 
+function resolveTransactionKey(tx: Transaction): string | null {
+  const raw =
+    tx.id ??
+    tx.code ??
+    tx.orderNumber ??
+    tx.order_no ??
+    tx.invoiceNumber ??
+    tx.invoice_no ??
+    tx.receiptNumber ??
+    tx.receipt_no ??
+    null;
+  if (raw == null) return null;
+  const value = String(raw).trim();
+  return value ? value : null;
+}
+
+function resolveDateKey(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return null;
+  return new Date(parsed).toISOString().slice(0, 10);
+}
+
+function buildQueueNumberMap(transactions: Transaction[]) {
+  const sorted = [...transactions].sort((a, b) => {
+    const aTime = Date.parse(a.createdAt ?? "");
+    const bTime = Date.parse(b.createdAt ?? "");
+    const aTs = Number.isNaN(aTime) ? 0 : aTime;
+    const bTs = Number.isNaN(bTime) ? 0 : bTime;
+    if (aTs !== bTs) return aTs - bTs;
+    return (a.id ?? 0) - (b.id ?? 0);
+  });
+
+  const counters = new Map<string, number>();
+  const map = new Map<string, number>();
+
+  sorted.forEach((tx) => {
+    const key = resolveTransactionKey(tx);
+    const dateKey = resolveDateKey(tx.createdAt ?? null);
+    if (!key || !dateKey) return;
+    const next = (counters.get(dateKey) ?? 0) + 1;
+    counters.set(dateKey, next);
+    map.set(key, next);
+  });
+
+  return map;
+}
+
 function sumItems(items?: TransactionItem[]): number {
   return (items ?? []).reduce((total, item) => total + (item.qty ?? 0), 0);
 }
@@ -170,6 +218,7 @@ export async function fetchOrders(): Promise<Order[]> {
     }
 
     const transactions = Array.isArray(data) ? data : data.data ?? [];
+    const queueMap = buildQueueNumberMap(transactions);
     const transactionItems = Array.isArray(itemsPayload)
       ? itemsPayload
       : itemsPayload?.data ?? [];
@@ -191,7 +240,12 @@ export async function fetchOrders(): Promise<Order[]> {
           ? tx.itemsJson
           : itemsByTransactionId.get(tx.id ?? -1) ?? [];
 
-      return mapTransactionToOrder(tx, relatedItems);
+      const order = mapTransactionToOrder(tx, relatedItems);
+      const key = resolveTransactionKey(tx);
+      return {
+        ...order,
+        queueNumber: key ? queueMap.get(key) ?? null : null,
+      };
     });
   } catch {
     return [];

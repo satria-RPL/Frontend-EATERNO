@@ -2,10 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, Filter } from "lucide-react";
-import Pagination from "@/components/ui/Pagination";
-const STORAGE_KEY = "table-status-overrides";
 const channel = new BroadcastChannel("table-status");
-
 
 type TableInfo = {
   id: number;
@@ -25,43 +22,88 @@ export default function WaiterTableInfoTable() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
 
+  const applyOverrides = (
+    data: TableInfo[],
+    overrides: Record<number, TableInfo["status"]>
+  ) =>
+    data.map((table) => ({
+      ...table,
+      status: overrides[table.id] ?? table.status,
+    }));
+
+  const loadTables = async (isActive?: () => boolean) => {
+    setLoading(true);
+    try {
+      const [tablesRes, overridesRes] = await Promise.all([
+        fetch("/api/tables", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch("/api/table-status", { cache: "no-store" }),
+      ]);
+
+      if (!tablesRes.ok) {
+        const err = await tablesRes.json().catch(() => null);
+        throw new Error(err?.message ?? "Gagal mengambil data tables");
+      }
+
+      const data = await tablesRes.json();
+      const overrides = overridesRes.ok
+        ? await overridesRes.json()
+        : {};
+
+      if (!isActive || isActive()) {
+        setTables(applyOverrides(data, overrides));
+      }
+    } catch {
+      if (!isActive || isActive()) {
+        setTables([]);
+      }
+    } finally {
+      if (!isActive || isActive()) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const refreshOverrides = async () => {
+    const res = await fetch("/api/table-status", { cache: "no-store" });
+    if (!res.ok) return;
+    const overrides = await res.json();
+    setTables((prev) => applyOverrides(prev, overrides));
+  };
+
   useEffect(() => {
     let active = true;
 
-    fetch("/api/tables", {
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          throw new Error(err?.message ?? "Gagal mengambil data tables");
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (!active) return;
+    const isActive = () => active;
 
-        const raw = localStorage.getItem(STORAGE_KEY);
-        const overrides = raw ? JSON.parse(raw) : {};
+    loadTables(isActive);
 
-        const merged = data.map((t: TableInfo) => ({
-          ...t,
-          status: overrides[t.id] ?? t.status,
-        }));
+    const intervalId = window.setInterval(() => {
+      if (!active) return;
+      refreshOverrides();
+    }, 5000);
 
-        setTables(merged);
-      })
-
-      .catch(() => {
-        if (active) setTables([]);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    const handler = (event: MessageEvent) => {
+      if (!event.data || !active) return;
+      const { tableId, status } = event.data as {
+        tableId?: number;
+        status?: TableInfo["status"];
+      };
+      if (!tableId || !status) return;
+      setTables((prev) =>
+        prev.map((table) =>
+          table.id === tableId ? { ...table, status } : table
+        )
+      );
+    };
+    channel.addEventListener("message", handler);
 
     return () => {
       active = false;
+      window.clearInterval(intervalId);
+      channel.removeEventListener("message", handler);
     };
   }, []);
 
@@ -72,31 +114,41 @@ export default function WaiterTableInfoTable() {
 
   // Toggle the status of a table by id
   //ini yang di ganti
-  const toggleStatus = (table: TableInfo) => {
-    const nextStatus =
-      table.status === "available" ? "not_available" : "available";
-
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const overrides = raw ? JSON.parse(raw) : {};
-
-    overrides[table.id] = nextStatus;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
-
+  const toggleStatus = async (table: TableInfo) => {
+    const nextStatus = table.status === "available" ? "not_available" : "available";
     setTables((prevTables) =>
       prevTables.map((t) =>
         t.id === table.id ? { ...t, status: nextStatus } : t
       )
     );
+
+    try {
+      const res = await fetch("/api/table-status", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableId: table.id, status: nextStatus }),
+      });
+      if (!res.ok) {
+        throw new Error("Gagal update status meja");
+      }
+      channel.postMessage({ tableId: table.id, status: nextStatus });
+    } catch {
+      setTables((prevTables) =>
+        prevTables.map((t) =>
+          t.id === table.id ? { ...t, status: table.status } : t
+        )
+      );
+    }
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col gap-6 p-4 overflow-hidden bg-[#FFFFFF]">
+    <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4 overflow-hidden bg-[#F8F8FA] p-3 sm:h-[calc(100vh-8rem)] sm:gap-6 sm:p-4">
       {/* HEADER */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Table Info</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-xl font-semibold sm:text-2xl">Table Info</h2>
 
         {/* filter & sort – digeser ke kiri */}
-        <div className="flex items-center gap-6 text-xs text-zinc-500 mr-6">
+        <div className="flex items-center gap-4 text-xs text-zinc-500 sm:mr-6 sm:gap-6">
           <div className="relative">
             <button
               className="flex items-center gap-1.5 hover:text-[#5f5f5f]"
@@ -106,15 +158,15 @@ export default function WaiterTableInfoTable() {
                 setSortOpen(false);
               }}
             >
-              <Filter size={23} />
+              <Filter size={20} />
               Filter
             </button>
 
             {filterOpen && (
-              <div className="absolute right-0 z-50 mt-2 w-36 rounded-lg bg-white p-2 text-[11px] shadow-md">
-                <div className="px-2 py-1 text-zinc-500">Filter UI only</div>
-              </div>
-            )}
+                <div className="absolute right-0 z-50 mt-2 w-36 rounded-lg bg-white p-2 text-[11px] shadow-md">
+                  <div className="px-2 py-1 text-zinc-500">Filter UI only</div>
+                </div>
+              )}
           </div>
 
           <div className="relative">
@@ -126,7 +178,7 @@ export default function WaiterTableInfoTable() {
                 setFilterOpen(false);
               }}
             >
-              <ArrowUpDown size={23} />
+              <ArrowUpDown size={20} />
               Sort
             </button>
 
@@ -140,82 +192,85 @@ export default function WaiterTableInfoTable() {
       </div>
 
       {/* TABLE */}
-      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto rounded-2xl">
-        <table className="w-full text-base bg-white">
-          <thead className="sticky top-0 bg-gray-50 z-10">
-            <tr className="text-zinc-500">
-              <td className="py-4 px-5 text-center">#</td>
-              <td className="py-4 px-5 text-center">Table No</td>
-              <td className="py-4 px-5 text-center">Table for</td>
-              <td className="py-4 px-5 text-center">Status</td>
-              <td className="py-4 px-5 text-center">Aksi</td>
-            </tr>
-          </thead>
-
-          <tbody className="text-zinc-500">
-            {!loading && paged.length === 0 && (
-              <tr>
-                <td colSpan={5} className="py-6 text-center text-zinc-500">
-                  Data tidak ditemukan.
-                </td>
-              </tr>
-            )}
-
-            {paged.map((table, index) => {
-              const isAvailable = table.status === "available";
-
-              return (
-                <tr key={table.id} className="">
-                  <td className="py-5 text-center">
-                    {(page - 1) * perPage + index + 1}
-                  </td>
-
-                  <td className="py-5 text-center">{table.name}</td>
-
-                  <td className="py-5 text-center">{table.capacity}</td>
-
-                  <td className="py-5 text-center">
-                    {!isAvailable ? (
-                      <span className="inline-flex items-center gap-2 rounded-full bg-red-50 border border-[#EF4444] px-2 py-1 text-base font-medium text-[#EF4444]">
-                        <span className="h-3.5 w-3.5 rounded-full bg-[#EF4444]" />
-                        Not Available
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-2 rounded-full border bg-green-50 border-[#16a34a] px-2 py-1 text-base font-medium text-[#16a34a]">
-                        <span className="h-3.5 w-3.5 rounded-full bg-[#16a34a]" />
-                        Available
-                      </span>
-                    )}
-                  </td>
-
-                  {/* AKSI */}
-                  <td className="py-3 text-center">
-                    <div className="flex justify-center">
-                      <button
-                        type="button"
-                        aria-label="Toggle Status"
-                        onClick={() => toggleStatus(table)}
-                        className={`relative h-8 w-17 rounded-full transition focus:outline-none ${
-                          !isAvailable ? "bg-[#FEE2E2] " : "bg-[#E5E7EB] "
-                        }`}
-                        style={{ minWidth: 44, minHeight: 24, padding: 0 }}
-                      >
-                        <span
-                          className={`absolute top-1 h-6 w-6 rounded-full transition ${
-                            !isAvailable
-                              ? "right-0.5 bg-[#EF4444]"
-                              : "left-0.5 bg-[#6B7280]"
-                          }`}
-                          style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
-                        />
-                      </button>
-                    </div>
-                  </td>
+      <div className="min-h-0 flex-1">
+        <div className="mx-auto w-full max-w-6xl rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4">
+          <div className="overflow-x-auto overflow-y-auto rounded-xl">
+            <table className="w-full bg-white text-xs sm:text-sm">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr className="text-zinc-500">
+                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">#</td>
+                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">Table No</td>
+                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">Table for</td>
+                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">Status</td>
+                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">Aksi</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+
+              <tbody className="text-zinc-500">
+                {!loading && paged.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-zinc-500">
+                      Data tidak ditemukan.
+                    </td>
+                  </tr>
+                )}
+
+                {paged.map((table, index) => {
+                  const isAvailable = table.status === "available";
+
+                  return (
+                    <tr key={table.id}>
+                      <td className="py-3 text-center sm:py-4">
+                        {(page - 1) * perPage + index + 1}
+                      </td>
+
+                      <td className="py-3 text-center sm:py-4">{table.name}</td>
+
+                      <td className="py-3 text-center sm:py-4">
+                        {table.capacity}
+                      </td>
+
+                      <td className="py-3 text-center sm:py-4">
+                        <span
+                          className={`inline-flex h-4 w-4 items-center justify-center rounded-full border sm:h-5 sm:w-5 ${
+                            !isAvailable
+                              ? "border-[#EF4444] bg-red-50"
+                              : "border-[#16a34a] bg-green-50"
+                          }`}
+                          aria-label={isAvailable ? "Available" : "Not available"}
+                        >
+                          <span
+                            className={`h-2.5 w-2.5 rounded-full sm:h-3 sm:w-3 ${
+                              !isAvailable ? "bg-[#EF4444]" : "bg-[#16a34a]"
+                            }`}
+                          />
+                        </span>
+                      </td>
+
+                      {/* AKSI */}
+                      <td className="py-3 text-center">
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            aria-label="Toggle Status"
+                            onClick={() => toggleStatus(table)}
+                            className={`relative h-7 w-14 rounded-full transition focus:outline-none sm:h-8 sm:w-17 ${!isAvailable ? "bg-[#FEE2E2] " : "bg-[#E5E7EB] "}`}
+                            style={{ minWidth: 44, minHeight: 24, padding: 0 }}
+                          >
+                            <span
+                              className={`absolute top-0.5 h-5 w-5 rounded-full transition sm:top-1 sm:h-6 sm:w-6 ${!isAvailable ? "right-0.5 bg-[#EF4444]" : "left-0.5 bg-[#6B7280]"}`}
+                              style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+                            />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* PAGINATION

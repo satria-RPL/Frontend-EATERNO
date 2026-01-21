@@ -74,14 +74,34 @@ export default function ProductsListClient({
     };
   }, [loadKitchenOrders]);
 
-  const visibleOrders = useMemo(
-    () =>
-      orders.filter((order) => {
-        const status = order.transactionStatus ?? "proses";
-        return status !== "selesai" && status !== "cancel";
-      }),
-    [orders]
-  );
+  const visibleOrders = useMemo(() => {
+    const allowedStatuses = new Set(["proses", "process", "ready_to_pickup"]);
+
+    const getPriority = (status: string) => {
+      if (status === "ready_to_pickup") return 0;
+      return 1;
+    };
+
+    return orders
+      .map((order, index) => ({ order, index }))
+      .filter(({ order }) => {
+        const rawStatus = order.transactionStatus ?? "proses";
+        const normalized = rawStatus.toLowerCase().replace(/\s+/g, "_");
+        return allowedStatuses.has(normalized);
+      })
+      .sort((a, b) => {
+        const statusA = (a.order.transactionStatus ?? "proses")
+          .toLowerCase()
+          .replace(/\s+/g, "_");
+        const statusB = (b.order.transactionStatus ?? "proses")
+          .toLowerCase()
+          .replace(/\s+/g, "_");
+        const diff = getPriority(statusA) - getPriority(statusB);
+        if (diff !== 0) return diff;
+        return a.index - b.index;
+      })
+      .map(({ order }) => order);
+  }, [orders]);
 
   const filteredOrders =
     activeFilter === "all"

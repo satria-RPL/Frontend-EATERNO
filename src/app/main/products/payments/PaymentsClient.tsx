@@ -81,12 +81,7 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
     () => createOrderPrintResolver({ fetchOrders }),
     []
   );
-  const listPath = useMemo(() => {
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    params.delete("method");
-    const query = params.toString();
-    return query ? `/main/products/list?${query}` : "/main/products/list";
-  }, [searchParams]);
+  const orderTypePath = "/main/products/ordertype";
 
   const subtotal = useMemo(() => getSubtotal(), [cart, getSubtotal]);
   const itemsCount = useMemo(
@@ -260,7 +255,7 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
 
     if (!printerPort) {
       setIsSubmitting(false);
-      router.push(listPath);
+      router.push(orderTypePath);
       return;
     }
 
@@ -281,7 +276,7 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
       });
       await writeSerial(printerPort, payload);
       setIsSubmitting(false);
-      router.push(listPath);
+      router.push(orderTypePath);
     } catch {
       setPrintError(
         "Gagal mencetak struk. Coba ulang dari History Order."

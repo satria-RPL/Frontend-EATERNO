@@ -16,9 +16,9 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
   const [password, setPassword] = useState("");
 
   return (
-    <div className="min-h-screen">
-      <nav className="w-full mb-12">
-        <div className="max-w-full mx-auto px-8 py-8">
+    <div className="min-h-screen flex flex-col">
+      <nav className="w-full mb-8 md:mb-12">
+        <div className="max-w-6xl mx-auto px-6 md:px-8 py-6 md:py-8">
           <Image
             src="/img/brand.png"
             width={200}
@@ -28,22 +28,23 @@ export function LoginFormView({ state, formAction }: LoginFormViewProps) {
         </div>
       </nav>
 
-      <div className="flex flex-row items-center justify-center px-10 pb-12">
+      <div className="flex flex-col md:flex-row items-center justify-center gap-10 px-6 md:px-10 pb-12 max-w-6xl mx-auto w-full">
         {/* KIRI: ILUSTRASI */}
-        <div className="w-1/2 flex justify-center">
-          <div>
+        <div className="w-full md:w-1/2 flex justify-center">
+          <div className="w-full max-w-sm md:max-w-none">
             <Image
               src="/img/vector.jpg"
               height={500}
               width={500}
               alt="Vector illustration"
               priority
+              className="w-full h-auto"
             />
           </div>
         </div>
         {/* KANAN: FORM LOGIN */}
-        <div className="w-1/2 py-10 pr-50">
-          <h1 className="text-2xl font-bold text-gray-900 mb-5 text-left">
+        <div className="w-full md:w-1/2 py-2 md:py-10 md:pr-10">
+          <h1 className="text-2xl font-bold text-gray-900 mb-5 text-center md:text-left">
             Welcome Back!
           </h1>
           <form action={formAction} className="space-y-5">

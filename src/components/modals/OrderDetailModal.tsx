@@ -69,6 +69,8 @@ export default function OrderDetailModal({
   const displayDate = formatDateTime(order.createdAt ?? order.date);
   const displayOrderType = formatOrderType(order.orderType);
   const displayCustomer = order.customerName ?? "-";
+  const displayQueue =
+    order.queueNumber != null ? String(order.queueNumber) : "-";
   const isReadyPickup = order.status === "ready_to_pickup";
   const isDone = order.status === "selesai";
   const canPrint = isReadyPickup || isDone;
@@ -112,6 +114,10 @@ export default function OrderDetailModal({
           <div className="flex items-center justify-between">
             <span>Nama Pelanggan</span>
             <span className="text-[#ff6a00]">{displayCustomer}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Antrian</span>
+            <span className="text-[#ff6a00]">{displayQueue}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>Tipe Pesanan</span>

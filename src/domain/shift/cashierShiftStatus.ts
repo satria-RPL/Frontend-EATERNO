@@ -9,6 +9,8 @@ export type CashierShiftService = {
 type CashierShiftApiItem = {
   stationId?: number | string;
   station_id?: number | string;
+  cashierId?: number | string;
+  cashier_id?: number | string;
   status?: string | null;
   closedAt?: string | null;
   closed_at?: string | null;
@@ -50,6 +52,22 @@ export function resolveOccupiedStationIds(payload: unknown): string[] {
   });
 
   return Array.from(occupied);
+}
+
+export function hasActiveCashierShift(
+  payload: unknown,
+  cashierId?: string | null
+): boolean {
+  const items = unwrapArray<CashierShiftApiItem>(payload);
+  const normalizedCashierId = (cashierId ?? "").trim();
+
+  return items.some((item) => {
+    if (!isActiveShift(item)) return false;
+    if (!normalizedCashierId) return true;
+    const itemCashierId = toStringValue(item.cashierId ?? item.cashier_id).trim();
+    if (!itemCashierId) return true;
+    return itemCashierId === normalizedCashierId;
+  });
 }
 
 function isActiveShift(item: CashierShiftApiItem): boolean {

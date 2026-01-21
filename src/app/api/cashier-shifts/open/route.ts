@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiRequest } from "@/lib/api";
 import { getAuthCookiePayload } from "@/lib/session/authSession";
+import { resolveOccupiedStationIds } from "@/domain/shift/cashierShiftStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,26 @@ export async function POST(request: Request) {
     cashierId,
     ipAddress,
   };
+
+  const stationId = toStringValue(
+    payload?.stationId ?? payload?.station_id ?? payload?.station
+  ).trim();
+
+  if (stationId) {
+    const shiftStatus = await apiRequest("/api/cashier-shifts", { auth: true });
+    if (shiftStatus.ok) {
+      const occupiedStations = resolveOccupiedStationIds(shiftStatus.data);
+      if (occupiedStations.includes(stationId)) {
+        return NextResponse.json(
+          {
+            message: "Station sedang dipakai kasir lain.",
+            data: { stationId },
+          },
+          { status: 409 }
+        );
+      }
+    }
+  }
 
   const result = await apiRequest("/api/cashier-shifts/open", {
     auth: true,
@@ -61,4 +82,10 @@ function toNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+function toStringValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return "";
 }

@@ -153,7 +153,9 @@ export default function OrderTable({
     if (result.ok) {
       const updated = result.data;
       setSelectedOrder((prev) =>
-        prev && prev.id === updated.id ? updated : prev
+        prev && prev.id === updated.id
+          ? { ...updated, queueNumber: prev.queueNumber ?? null }
+          : prev
       );
     }
   };

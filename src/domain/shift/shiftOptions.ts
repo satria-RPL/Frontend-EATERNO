@@ -49,6 +49,7 @@ export type ShiftOption = {
 };
 
 export type StationOption = {
+  id?: string;
   value: string;
   label: string;
   placeId?: string;
@@ -203,12 +204,14 @@ export function createShiftOptionsLoader({
       const activeValue = normalizeBoolean(item.isActive ?? item.is_active);
       if (activeValue === false) return acc;
 
+      const id = toStringValue(item.id).trim();
       const value = toStringValue(item.id ?? item.name ?? item.label).trim();
       if (!value) return acc;
 
       const placeId = toStringValue(item.placeId ?? item.place_id).trim();
 
       acc.push({
+        id: id || undefined,
         value,
         label: buildStationLabel(item, value),
         placeId: placeId || undefined,

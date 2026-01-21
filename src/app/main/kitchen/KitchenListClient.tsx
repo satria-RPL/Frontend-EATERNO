@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Clock, RotateCcw } from "lucide-react";
-import { fetchOrders, updateTransactionStatus } from "@/lib/services/orderService";
+import { fetchOrders, fetchTransactionById } from "@/lib/services/orderService";
 import type { Order } from "@/types/order";
 import OrderDetailKitchenModal from "@/components/modals/OrderDetailKitchenModal";
 
@@ -156,31 +156,47 @@ export default function KitchenListClient() {
   }, [filteredOrders, statusOverrides]);
 
   const handleOpenDetail = async (order: OrderSummary) => {
-    let ordersData = detailOrders;
-    if (!ordersData) {
-      ordersData = await fetchOrders();
-      setDetailOrders(ordersData);
+    const transactionId = order.transactionId ?? null;
+    let resolvedOrder: Order | null = null;
+
+    if (transactionId != null) {
+      const result = await fetchTransactionById(transactionId);
+      if (result.ok) {
+        resolvedOrder = result.data;
+      }
     }
 
-    const transactionId = order.transactionId ?? null;
-    const matched =
-      transactionId != null
-        ? ordersData?.find(
-            (item) => item.id.replace(/\D/g, "") === String(transactionId)
-          ) ?? null
-        : ordersData?.find(
-            (item) => item.id.replace(/\D/g, "") === String(order.id)
-          ) ?? null;
+    if (!resolvedOrder) {
+      let ordersData = detailOrders;
+      if (!ordersData) {
+        ordersData = await fetchOrders();
+        setDetailOrders(ordersData);
+      }
 
-    if (!matched) {
-      console.warn("Order detail tidak ditemukan untuk", transactionId ?? order.id);
+      const matched =
+        transactionId != null
+          ? ordersData?.find(
+              (item) => item.id.replace(/\D/g, "") === String(transactionId)
+            ) ?? null
+          : ordersData?.find(
+              (item) => item.id.replace(/\D/g, "") === String(order.id)
+            ) ?? null;
+
+      resolvedOrder = matched ?? null;
+    }
+
+    if (!resolvedOrder) {
+      console.warn(
+        "Order detail tidak ditemukan untuk",
+        transactionId ?? order.id
+      );
       return;
     }
 
-    setSelectedOrder(matched);
+    setSelectedOrder(resolvedOrder);
     setSelectedSummary((prev) => ({
       ...(prev ?? order),
-      kitchenNote: order.kitchenNote ?? matched.note ?? null,
+      kitchenNote: order.kitchenNote ?? resolvedOrder.note ?? null,
     }));
     setDetailModal(true);
   };
@@ -311,24 +327,81 @@ export default function KitchenListClient() {
     return order.table === "-" ? "Meja -" : `Meja ${order.table}`;
   };
 
-  const getHeaderColor = (order: OrderSummary) => (order.type === "dinein" ? "var(--kichencard_dinein1)" : "var(--kichencard_takeaway)");
+  const getAccentColor = (order: OrderSummary) => {
+    const status = getEffectiveStatus(order);
+    if (status === "done") return "var(--kitchencard_done)";
+    return order.type === "dinein"
+      ? "var(--kitchencard_dinein)"
+      : "var(--kitchencard_takeaway)";
+  };
 
-  const getStatusColor = (order: OrderSummary) => (order.type === "dinein" ? "var(--kichencard_dinein2)" : "var(--kichencard_takeaway2)");
+  const getStatusColor = (order: OrderSummary) => {
+    const status = getEffectiveStatus(order);
+    if (status === "queued") return "#E02929";
+    if (status === "done") return "var(--kitchencard_done)";
+    return "var(--primary)";
+  };
 
-  const getDetailColor = (order: OrderSummary) => (order.type === "dinein" ? "var(--kichencard_dinein1)" : "var(--kichencard_takeaway)");
+  const getAccentTextColor = (order: OrderSummary) => {
+    const status = getEffectiveStatus(order);
+    if (status === "done") return "text-white";
+    return order.type === "dinein" ? "text-default" : "text-white";
+  };
 
-  const getHeaderTextColor = (order: OrderSummary) => (order.type === "dinein" ? "text-white" : "text-default");
+  const getMinutesFromTimeAgo = (value: string | null | undefined) => {
+    if (!value) return 0;
+    const lower = value.toLowerCase();
+    if (lower.includes("baru")) return 0;
+    const numberMatch = lower.match(/\d+/);
+    const amount = numberMatch ? Number(numberMatch[0]) : 0;
+    if (lower.includes("detik")) return Math.max(amount / 60, 0);
+    if (lower.includes("menit")) return Math.max(amount, 0);
+    if (lower.includes("jam")) return Math.max(amount * 60, 0);
+    if (lower.includes("hari")) return Math.max(amount * 60 * 24, 0);
+    return 0;
+  };
 
-  const getDetailTextColor = (order: OrderSummary) => (order.type === "dinein" ? "text-white" : "text-default");
+  const getTimeBarColor = (order: OrderSummary) => {
+    if (getEffectiveStatus(order) === "proses") {
+      return "color-mix(in srgb, #E02929 3%, white)";
+    }
+    const minutes = getMinutesFromTimeAgo(order.timeAgo);
+    const percent = Math.min(Math.max((minutes / 30) * 100, 0), 100);
+    return `color-mix(in srgb, #E02929 ${percent}%, white)`;
+  };
 
-  const renderOrderRow = (rowOrders: OrderSummary[]) => (
-    <div className="flex flex-nowrap gap-[15px] overflow-x-auto pb-2 hide-scrollbar">
-      {rowOrders.map((order) => {
-        const headerColor = getHeaderColor(order);
+  const getTimeBarTextColor = (order: OrderSummary) => {
+    if (getEffectiveStatus(order) === "proses") {
+      return "text-default";
+    }
+    const minutes = getMinutesFromTimeAgo(order.timeAgo);
+    const percent = Math.min(Math.max((minutes / 30) * 100, 0), 100);
+    return percent >= 55 ? "text-white" : "text-default";
+  };
+
+  const renderOrderRow = (rowOrders: OrderSummary[], wrap = false) => (
+    <div
+      className={`gap-[15px] pb-2 ${
+        wrap
+          ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
+          : "flex flex-nowrap overflow-x-auto hide-scrollbar"
+      }`}
+    >
+      {[...rowOrders]
+        .sort(
+          (a, b) =>
+            getMinutesFromTimeAgo(b.timeAgo) -
+            getMinutesFromTimeAgo(a.timeAgo)
+        )
+        .map((order) => {
+        const isWrap = wrap;
+        const headerColor = getAccentColor(order);
         const statusColor = getStatusColor(order);
-        const detailColor = getDetailColor(order);
-        const headerTextColor = getHeaderTextColor(order);
-        const detailTextColor = getDetailTextColor(order);
+        const detailColor = getAccentColor(order);
+        const headerTextColor = getAccentTextColor(order);
+        const detailTextColor = getAccentTextColor(order);
+        const timeBarColor = getTimeBarColor(order);
+        const timeBarTextColor = getTimeBarTextColor(order);
         const items = order.itemsPreview.slice(0, 2);
         const moreCount = Math.max(order.itemsPreview.length - items.length, 0);
         const cardBorder = "var(--tertiary)";
@@ -336,8 +409,15 @@ export default function KitchenListClient() {
         return (
           <div
             key={getStatusKey(order)}
-            className="shrink-0 rounded-xl bg-white shadow-sm overflow-hidden"
-            style={{ width: 282, height: 173, border: `2px solid ${cardBorder}` }}
+            className={`rounded-xl bg-white shadow-sm overflow-hidden select-none ${
+              isWrap ? "w-full" : "shrink-0"
+            }`}
+            style={{
+              width: isWrap ? "100%" : 282,
+              maxWidth: isWrap ? 282 : undefined,
+              height: 173,
+              border: `2px solid ${cardBorder}`,
+            }}
           >
             <div className="px-3 py-2" style={{ backgroundColor: headerColor }}>
               <div className={`flex items-center justify-between text-[12px] font-semibold ${headerTextColor}`}>
@@ -352,14 +432,14 @@ export default function KitchenListClient() {
 
             <div className="px-2 pb-2">
               <div
-                className="-mx-2 flex items-center justify-between px-3 text-[10px] font-semibold text-white"
+                className={`-mx-2 flex items-center justify-between px-3 text-[10px] font-semibold ${timeBarTextColor}`}
                 style={{
-                  backgroundColor: statusColor,
+                  backgroundColor: timeBarColor,
                   height: 27,
                 }}
               >
                 <span className="flex items-center gap-1">
-                  <Clock size={12} className="text-white" />
+                  <Clock size={12} className={timeBarTextColor} />
                   {order.timeAgo}
                 </span>
                 <span>{order.title}</span>
@@ -391,7 +471,7 @@ export default function KitchenListClient() {
                     {getStatusLabel(order)}
                   </span>
                   <span
-                    className={`rounded-full text-[10px] font-semibold flex items-center justify-center leading-none ${detailTextColor}`}
+                    className={`rounded-full text-[10px] font-semibold flex items-center justify-center leading-none cursor-pointer ${detailTextColor}`}
                     style={{
                       backgroundColor: detailColor,
                       width: 76,
@@ -477,7 +557,7 @@ export default function KitchenListClient() {
 
       <div className="mt-12 space-y-4">
         {activeFilter === "done"
-          ? renderOrderRow(doneOrders)
+          ? renderOrderRow(doneOrders, true)
           : (
             <>
               {renderOrderRow(queuedOrders)}

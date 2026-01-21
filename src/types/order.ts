@@ -16,6 +16,7 @@ export type OrderDetailItem = {
 export interface Order {
   id: string;
   transactionId?: number | null;
+  queueNumber?: number | null;
   note?: string | null;
   name: string;
   payment: string;

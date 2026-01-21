@@ -44,7 +44,15 @@ export async function fetchShifts() {
 }
 
 export async function fetchStations(options: RequestInit = {}) {
-  return fetchApi("/api/stations", options);
+  const cacheBust = Date.now();
+  return fetchApi(`/api/stations?ts=${cacheBust}`, {
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    ...options,
+  });
 }
 
 export async function createCashierShift(payload: {
