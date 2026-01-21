@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Clock, RotateCcw } from "lucide-react";
-import { fetchOrders, fetchTransactionById } from "@/lib/services/orderService";
+import {
+  fetchOrders,
+  fetchTransactionById,
+  updateTransactionStatus,
+} from "@/lib/services/orderService";
 import type { Order } from "@/types/order";
 import OrderDetailKitchenModal from "@/components/modals/OrderDetailKitchenModal";
 
@@ -196,7 +200,7 @@ export default function KitchenListClient() {
     setSelectedOrder(resolvedOrder);
     setSelectedSummary((prev) => ({
       ...(prev ?? order),
-      kitchenNote: order.kitchenNote ?? resolvedOrder.note ?? null,
+      kitchenNote: order.kitchenNote ?? resolvedOrder.note ?? undefined,
     }));
     setDetailModal(true);
   };
