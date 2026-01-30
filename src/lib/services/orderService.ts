@@ -252,23 +252,44 @@ export async function fetchOrders(): Promise<Order[]> {
   }
 }
 
+function parseTransactionId(value: string | number): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.startsWith("#") ? trimmed.slice(1) : trimmed;
+  if (!/^\d+$/.test(normalized)) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export async function voidOrder(
   orderId: string | number,
-  payload: { password: string }
+  payload: { password: string; voidReason?: string; reason?: string }
 ) {
-  const resolvedId =
-    typeof orderId === "number"
-      ? orderId
-      : Number(String(orderId).replace(/\D/g, ""));
+  const resolvedId = parseTransactionId(orderId);
 
-  if (!Number.isFinite(resolvedId) || resolvedId <= 0) {
+  if (!resolvedId || resolvedId <= 0) {
     throw new Error("ID transaksi tidak valid");
   }
+
+  const rawReason =
+    typeof payload.voidReason === "string"
+      ? payload.voidReason
+      : payload.reason;
+  const trimmedReason = typeof rawReason === "string" ? rawReason.trim() : "";
+  const bodyPayload = {
+    password: payload.password,
+    ...(trimmedReason
+      ? { voidReason: trimmedReason, reason: trimmedReason }
+      : {}),
+  };
 
   const res = await fetch(`/api/transactions/void/${resolvedId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(bodyPayload),
     credentials: "include",
   });
 

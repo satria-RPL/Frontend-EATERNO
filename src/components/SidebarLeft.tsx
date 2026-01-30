@@ -14,7 +14,7 @@ import { useNavItems } from "@/config/nav-items";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types/nav";
 import { usePersistentBoolean } from "@/lib/hooks/usePersistentBoolean";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type SidebarLeftProps = {
   role?: string;
@@ -36,6 +36,9 @@ export default function SidebarLeft({ role }: SidebarLeftProps) {
 
   const normalizedRole = (role ?? "").toLowerCase();
   const isChef = normalizedRole.includes("chef");
+  const isWaiter = normalizedRole.includes("waiter");
+  const shouldDirectLogout = isChef || isWaiter;
+  const [loggingOut, setLoggingOut] = useState(false);
   const kitchenNavItem = useMemo<NavItem>(
     () => ({
       name: "Kitchen",
@@ -61,6 +64,26 @@ export default function SidebarLeft({ role }: SidebarLeftProps) {
   const topItems = filteredItems.filter((item) => item.position === "top");
   const bottomItems = filteredItems.filter((item) => item.position === "bottom");
 
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const res = await fetch("/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        console.error("Logout gagal", res.status);
+        setLoggingOut(false);
+        return;
+      }
+      window.location.href = "/auth/login";
+    } catch (error) {
+      console.error("Logout gagal", error);
+      setLoggingOut(false);
+    }
+  };
+
   return (
     <aside
       className={cn(
@@ -85,31 +108,55 @@ export default function SidebarLeft({ role }: SidebarLeftProps) {
       <div className="flex h-full flex-col justify-between">
         {/* TOP */}
         <div className="mt-3 space-y-4">
-          {topItems.map((item) => (
-            <SideNavItem
-              key={item.href}
-              {...item}
-              isSidebarExpanded={isSidebarExpanded}
-            />
-          ))}
+          {topItems.map((item) =>
+            item.name === "Logout" && shouldDirectLogout ? (
+              <SideNavItem
+                key={item.href}
+                {...item}
+                isSidebarExpanded={isSidebarExpanded}
+                onClick={handleLogout}
+                disabled={loggingOut}
+              />
+            ) : (
+              <SideNavItem
+                key={item.href}
+                {...item}
+                isSidebarExpanded={isSidebarExpanded}
+              />
+            )
+          )}
         </div>
 
         {/* BOTTOM */}
         <div className="mb-3 space-y-4">
-          {bottomItems.map((item) => (
-            <SideNavItem
-              key={item.href}
-              {...item}
-              isSidebarExpanded={isSidebarExpanded}
-            />
-          ))}
+          {bottomItems.map((item) =>
+            item.name === "Logout" && shouldDirectLogout ? (
+              <SideNavItem
+                key={item.href}
+                {...item}
+                isSidebarExpanded={isSidebarExpanded}
+                onClick={handleLogout}
+                disabled={loggingOut}
+              />
+            ) : (
+              <SideNavItem
+                key={item.href}
+                {...item}
+                isSidebarExpanded={isSidebarExpanded}
+              />
+            )
+          )}
         </div>
       </div>
     </aside>
   );
 }
 
-type SideNavItemProps = NavItem & { isSidebarExpanded: boolean };
+type SideNavItemProps = NavItem & {
+  isSidebarExpanded: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
+};
 
 export function SideNavItem({
   name,
@@ -117,37 +164,75 @@ export function SideNavItem({
   href,
   active,
   isSidebarExpanded,
+  onClick,
+  disabled,
 }: SideNavItemProps) {
   const baseClasses =
     "relative flex items-center whitespace-nowrap rounded-md text-sm duration-100 bg-white";
   const activeClasses = "bg-orange-50 text-orange-500";
   const inactiveClasses = "hover:bg-orange-50 hover:text-orange-500";
+  const disabledClasses = disabled ? "opacity-70 cursor-not-allowed" : "";
 
   return isSidebarExpanded ? (
-    <Link
-      href={href}
-      className={cn(baseClasses, active ? activeClasses : inactiveClasses)}
-    >
-      <div className="py-2 px-4 gap-2 flex flex-row items-center rounded-md">
-        {icon}
-        <span>{name}</span>
-      </div>
-    </Link>
+    onClick ? (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={cn(
+          baseClasses,
+          active ? activeClasses : inactiveClasses,
+          disabledClasses
+        )}
+      >
+        <div className="py-2 px-4 gap-2 flex flex-row items-center rounded-md">
+          {icon}
+          <span>{name}</span>
+        </div>
+      </button>
+    ) : (
+      <Link
+        href={href}
+        className={cn(baseClasses, active ? activeClasses : inactiveClasses)}
+      >
+        <div className="py-2 px-4 gap-2 flex flex-row items-center rounded-md">
+          {icon}
+          <span>{name}</span>
+        </div>
+      </Link>
+    )
   ) : (
     <TooltipProvider delayDuration={70}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Link
-            href={href}
-            className={cn(
-              baseClasses,
-              active ? activeClasses : inactiveClasses
-            )}
-          >
-            <div className="py-2 px-4 flex items-center justify-center rounded-md">
-              {icon}
-            </div>
-          </Link>
+          {onClick ? (
+            <button
+              type="button"
+              onClick={onClick}
+              disabled={disabled}
+              className={cn(
+                baseClasses,
+                active ? activeClasses : inactiveClasses,
+                disabledClasses
+              )}
+            >
+              <div className="py-2 px-4 flex items-center justify-center rounded-md">
+                {icon}
+              </div>
+            </button>
+          ) : (
+            <Link
+              href={href}
+              className={cn(
+                baseClasses,
+                active ? activeClasses : inactiveClasses
+              )}
+            >
+              <div className="py-2 px-4 flex items-center justify-center rounded-md">
+                {icon}
+              </div>
+            </Link>
+          )}
         </TooltipTrigger>
         <TooltipContent
           side="right"

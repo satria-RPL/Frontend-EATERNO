@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LogOut } from "lucide-react";
 import HistoryOrderSearchBar from "@/components/HistoryOrderSearchBar";
+import { fetchTransactions } from "@/lib/services/transactionService";
+import { fetchCashierShifts } from "@/lib/services/shiftService";
 
 type NavbarProps = {
   userName?: string;
@@ -17,7 +19,7 @@ type NavbarProps = {
 export default function Navbar({
   userName,
   role,
-  avatarUrl = "/img/profil.png",
+  avatarUrl = "/img/profil.webp",
   onNotificationClick,
   showLogout = false,
   showSearch = true,
@@ -57,26 +59,17 @@ export default function Navbar({
 
     try {
       const [transactionsRes, shiftsRes] = await Promise.all([
-        fetch("/api/transactions", {
-          cache: "no-store",
-          credentials: "include",
-          headers: { Accept: "application/json" },
-        }),
-        fetch("/api/cashier-shifts", {
-          cache: "no-store",
-          credentials: "include",
-          headers: { Accept: "application/json" },
-        }),
+        fetchTransactions({ cache: "no-store" }),
+        fetchCashierShifts({ cache: "no-store" }),
       ]);
-      const payload = (await transactionsRes
-        .json()
-        .catch(() => null)) as TransactionResponse | null;
-      const shiftsPayload = (await shiftsRes.json().catch(() => null)) as
-        | unknown
-        | null;
+
+      const payload = transactionsRes.ok
+        ? (transactionsRes.data as TransactionResponse | null)
+        : null;
+      const shiftsPayload = shiftsRes.ok ? shiftsRes.data : null;
 
       if (!transactionsRes.ok || !payload) {
-        setNotifError("Gagal memuat notifikasi");
+        setNotifError(transactionsRes.ok ? "Gagal memuat notifikasi" : transactionsRes.error);
         setNotifItems([]);
         return;
       }
@@ -149,17 +142,22 @@ export default function Navbar({
 
   const handleLogout = async () => {
     try {
-      await fetch("/auth/logout", {
+      const res = await fetch("/auth/logout", {
         method: "POST",
         credentials: "include",
       });
-    } finally {
+      if (!res.ok) {
+        console.error("Logout gagal", res.status);
+        return;
+      }
       window.location.href = "/auth/login";
+    } catch (error) {
+      console.error("Logout gagal", error);
     }
   };
 
   return (
-    <nav className="fixed top-0 z-50 w-full bg-white text-(--color-text-body) shadow-sm">
+    <nav className="fixed top-0 z-50 w-full bg-(--background) shadow-sm">
       <div className="mx-auto flex max-w-full items-center justify-between px-4 py-3 sm:px-8">
         <div className="flex h-16 w-full items-center justify-between gap-4 sm:gap-6">
           <div
@@ -167,9 +165,9 @@ export default function Navbar({
               showSearch ? "gap-6 sm:gap-20" : "gap-4"
             }`}
           >
-            <div className="text-lg font-bold text-(--color-text-header)">
+            <div className="text-lg font-bold">
               <Image
-                src="/img/brand.png"
+                src="/img/brand.webp"
                 width={150}
                 height={150}
                 alt="Eaterno brand"
@@ -269,7 +267,7 @@ export default function Navbar({
             />
 
             <div className="text-left">
-              <div className="font-bold text-(--color-text-header)">
+              <div className="font-bold">
                 {userName}
               </div>
               <div className="text-black/50 text-base font-normal">

@@ -4,58 +4,42 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { persistCheckoutState, readCheckoutState } from "@/lib/checkout/storage";
 
 export default function OrderType() {
   const [selected, setSelected] = useState<"takeaway" | "dinein" | null>(() => {
-    if (typeof window === "undefined") return null;
-    const saved = window.localStorage.getItem("eaterno-checkout");
-    if (!saved) return null;
-    try {
-      const parsed = JSON.parse(saved) as { orderType?: string };
-      if (parsed.orderType === "takeaway") return "takeaway";
-      if (parsed.orderType === "dinein") return "dinein";
-    } catch {}
+    const saved = readCheckoutState();
+    if (saved.orderType === "takeaway") return "takeaway";
+    if (saved.orderType === "dinein") return "dinein";
     return null;
   });
   const [customerName, setCustomerName] = useState(() => {
-    if (typeof window === "undefined") return "";
-    const saved = window.localStorage.getItem("eaterno-checkout");
-    if (!saved) return "";
-    try {
-      const parsed = JSON.parse(saved) as { customerName?: string };
-      return parsed.customerName ?? "";
-    } catch {
-      return "";
-    }
+    const saved = readCheckoutState();
+    return saved.customerName ?? "";
   });
   const router = useRouter();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem("eaterno-checkout");
-    if (!saved) return;
-    try {
-      const parsed = JSON.parse(saved) as CheckoutState;
-      const customer = parsed.customerName?.trim();
-      const orderType = parsed.orderType;
-      if (!customer || !orderType) return;
+    const parsed = readCheckoutState();
+    const customer = parsed.customerName?.trim();
+    const orderType = parsed.orderType;
+    if (!customer || !orderType) return;
 
-      const params = new URLSearchParams();
-      params.set("name", customer);
-      params.set("orderType", orderType);
+    const params = new URLSearchParams();
+    params.set("name", customer);
+    params.set("orderType", orderType);
 
-      if (orderType === "dinein") {
-        if (parsed.tableId) {
-          params.set("table", String(parsed.tableId));
-          router.replace(`/main/products/list?${params.toString()}`);
-        } else {
-          router.replace(`/main/products/choosetable?${params.toString()}`);
-        }
-        return;
+    if (orderType === "dinein") {
+      if (parsed.tableId) {
+        params.set("table", String(parsed.tableId));
+        router.replace(`/main/products/list?${params.toString()}`);
+      } else {
+        router.replace(`/main/products/choosetable?${params.toString()}`);
       }
+      return;
+    }
 
-      router.replace(`/main/products/list?${params.toString()}`);
-    } catch {}
+    router.replace(`/main/products/list?${params.toString()}`);
   }, [router]);
 
   const isFormValid = Boolean(selected) && customerName.trim().length > 0;
@@ -103,7 +87,7 @@ export default function OrderType() {
             }`}
         >
           <Image
-            src="/icon/takeaway.jpg"
+            src="/icon/takeaway.webp"
             height={120}
             width={120}
             alt="Take Away"
@@ -125,7 +109,7 @@ export default function OrderType() {
             }`}
         >
           <Image
-            src="/icon/dinein.jpg"
+            src="/icon/dinein.webp"
             height={120}
             width={120}
             alt="Dine In"
@@ -167,27 +151,3 @@ export default function OrderType() {
     </div>
   );
 }
-
-function persistCheckoutState(next: Partial<CheckoutState>) {
-  if (typeof window === "undefined") return;
-  const saved = window.localStorage.getItem("eaterno-checkout");
-  let current: CheckoutState = {};
-  if (saved) {
-    try {
-      current = JSON.parse(saved) as CheckoutState;
-    } catch {
-      current = {};
-    }
-  }
-  const merged = { ...current, ...next };
-  window.localStorage.setItem("eaterno-checkout", JSON.stringify(merged));
-}
-
-type CheckoutState = {
-  customerName?: string;
-  orderType?: "takeaway" | "dinein";
-  tableId?: number | null;
-  paymentMethod?: string;
-  selectedCoupons?: string[];
-  cashInput?: string;
-};

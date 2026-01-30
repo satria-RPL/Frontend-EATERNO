@@ -3,35 +3,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { useCartStore } from "@/data/cart";
-import { type Coupon } from "@/domain/checkout/coupons";
-import { createCouponsLoader } from "@/domain/checkout/couponsLoader";
-import { calculateTotals } from "@/domain/checkout/pricing";
-import {
-  buildTransactionItems,
-  resolveOrderType,
-} from "@/domain/checkout/transactions";
-import { createOrderPrintResolver } from "@/domain/orders/orderPrint";
+import { loadCoupons } from "@/application/payments/coupons";
 import {
   persistCheckoutState,
   readCheckoutState,
-  clearCheckoutState,
-} from "@/lib/checkout/storage";
-import { getCoupons } from "@/lib/services/couponService";
-import { fetchOrders } from "@/lib/services/orderService";
+} from "@/application/payments/checkoutState";
+import { processPayment } from "@/application/payments/processPayment";
 import {
-  createTransaction,
-  fetchTransactionItems,
-  updateTransaction,
-} from "@/lib/services/transactionService";
-import { createKitchenOrderStatus } from "@/lib/services/kitchenOrderService";
-import {
-  buildEscPosPayload,
-  getSerialApi,
-  openSerialPort,
-  writeSerial,
+  connectPrinter,
+  disconnectPrinter,
   type SerialPortLike,
-} from "@/lib/printing/escpos";
+} from "@/application/payments/printer";
+import { useCartStore } from "@/data/cart";
+import { type Coupon } from "@/domain/checkout/coupons";
+import { calculateTotals } from "@/domain/checkout/pricing";
 import { Button } from "@/components/ui/Button";
 import Loading from "@/components/ui/Loading";
 import { Wallet, QrCode, Landmark } from "lucide-react";
@@ -73,17 +58,9 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
   const clearCart = useCartStore((s) => s.clearCart);
   const getSubtotal = useCartStore((s) => s.getSubtotal);
   const router = useRouter();
-  const { loadCoupons } = useMemo(
-    () => createCouponsLoader({ getCoupons }),
-    []
-  );
-  const { resolveOrderForPrint } = useMemo(
-    () => createOrderPrintResolver({ fetchOrders }),
-    []
-  );
   const orderTypePath = "/main/products/ordertype";
 
-  const subtotal = useMemo(() => getSubtotal(), [cart, getSubtotal]);
+  const subtotal = getSubtotal();
   const itemsCount = useMemo(
     () => cart.reduce((sum, item) => sum + (item.qty ?? 0), 0),
     [cart]
@@ -92,7 +69,7 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
     () =>
       calculateTotals({
         subtotal,
-        taxPercent: 10,
+        taxPercent: 11,
         coupons,
         selectedCoupons,
       }),
@@ -145,7 +122,7 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [loadCoupons]);
+  }, []);
 
   useEffect(() => {
     persistCheckoutState({
@@ -192,96 +169,41 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
     setSubmitError(null);
     setPrintError(null);
 
-    const savedState = readCheckoutState();
-    const storedPlaceId = resolveStoredPlaceId();
-    const resolvedTableId = Number.isFinite(tableId)
-      ? tableId
-      : Number.isFinite(savedState.tableId)
-      ? savedState.tableId ?? null
-      : null;
-    const resolvedPlaceId = Number.isFinite(placeId) ? placeId : storedPlaceId;
-    const resolvedCustomerName =
-      customerName ?? savedState.customerName ?? null;
-    const resolvedOrderType = resolveOrderType(
-      orderTypeParam ?? savedState.orderType ?? null,
-      resolvedTableId
-    );
-
-    const result = await createTransaction({
-      placeId: resolvedPlaceId,
-      tableId: resolvedTableId,
-      orderType: resolvedOrderType,
-      customerName: resolvedCustomerName,
-      note: savedState.kitchenNote?.trim() || null,
-      totalItems: itemsCount,
-      total: totalAmount,
-      tax: taxAmount,
-      discount: discountAmount,
+    const result = await processPayment({
+      cart,
+      itemsCount,
+      totals: {
+        total: totalAmount,
+        tax: taxAmount,
+        discount: discountAmount,
+      },
+      tableId,
+      placeId,
+      customerName,
+      orderTypeParam: orderTypeParam ?? null,
       paymentMethodId,
-      items: buildTransactionItems(
-        cart,
-        savedState.kitchenNote?.trim() || null
-      ),
+      cashierName,
+      printerPort,
+      baudRate,
     });
 
     if (!result.ok) {
-      setSubmitError(result.error || "Gagal memproses transaksi");
+      setSubmitError(result.submitError || "Gagal memproses transaksi");
       setIsSubmitting(false);
       return;
     }
 
-    const transactionCode = persistTransactionCode(result.data);
-    const transactionId = resolveTransactionId(result.data);
-    const kitchenNote = savedState.kitchenNote?.trim() || null;
-
-    if (transactionId && kitchenNote) {
-      updateTransaction(transactionId, {
-        note: kitchenNote,
-        kitchenNote,
-      }).catch((error) => {
-        console.warn("Gagal update catatan transaksi", error);
-      });
+    if (result.didCreateTransaction) {
+      clearCart();
     }
 
-    if (transactionId) {
-      createKitchenOrdersForTransaction(transactionId, kitchenNote).catch(
-        (error) => {
-          console.warn("Gagal membuat kitchen order", error);
-        }
-      );
+    if (result.printError) {
+      setPrintError(result.printError);
     }
-    clearCart();
-    clearCheckoutState();
 
-    if (!printerPort) {
-      setIsSubmitting(false);
+    setIsSubmitting(false);
+    if (result.shouldNavigate) {
       router.push(orderTypePath);
-      return;
-    }
-
-    const orderForPrint = await resolveOrderForPrint(transactionCode);
-    if (!orderForPrint) {
-      setPrintError(
-        "Struk belum siap dicetak. Coba cetak ulang dari History Order."
-      );
-      setIsSubmitting(false);
-      return;
-    }
-
-    try {
-      await openSerialPort(printerPort, baudRate);
-      const payload = await buildEscPosPayload(orderForPrint, {
-        storeName: "Eaterno",
-        cashierName: cashierName || undefined,
-      });
-      await writeSerial(printerPort, payload);
-      setIsSubmitting(false);
-      router.push(orderTypePath);
-    } catch {
-      setPrintError(
-        "Gagal mencetak struk. Coba ulang dari History Order."
-      );
-      setIsSubmitting(false);
     }
   };
 
@@ -327,23 +249,14 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
                 disabled={printerConnecting}
                 onClick={async () => {
                   setPrintError(null);
-                  const serialApi = getSerialApi();
-                  if (!serialApi) {
-                    setPrintError(
-                      "Browser ini tidak mendukung Web Serial."
-                    );
-                    return;
-                  }
                   setPrinterConnecting(true);
-                  try {
-                    const port = await serialApi.requestPort();
-                    await openSerialPort(port, baudRate);
-                    setPrinterPort(port);
-                  } catch {
-                    setPrintError("Gagal menghubungkan printer.");
-                  } finally {
-                    setPrinterConnecting(false);
+                  const result = await connectPrinter(baudRate);
+                  if (result.ok) {
+                    setPrinterPort(result.port);
+                  } else {
+                    setPrintError(result.error);
                   }
+                  setPrinterConnecting(false);
                 }}
               >
                 {printerConnecting ? "Menghubungkan..." : "Connect Printer"}
@@ -355,9 +268,7 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
                   variant="outline"
                   className="rounded-full"
                   onClick={async () => {
-                    try {
-                      await printerPort.close();
-                    } catch {}
+                    await disconnectPrinter(printerPort);
                     setPrinterPort(null);
                   }}
                 >
@@ -418,121 +329,6 @@ export default function PaymentPage({ cashierName }: PaymentPageProps) {
   );
 }
 
-function persistTransactionCode(payload: unknown) {
-  if (!payload || typeof window === "undefined") return;
-  const record =
-    payload && typeof payload === "object"
-      ? (payload as Record<string, unknown>)
-      : null;
-  const transaction =
-    record && typeof record.data === "object" && record.data != null
-      ? (record.data as Record<string, unknown>)
-      : record;
-  const rawCode =
-    transaction?.code ??
-    transaction?.orderNumber ??
-    transaction?.order_no ??
-    transaction?.invoiceNumber ??
-    transaction?.invoice_no ??
-    transaction?.receiptNumber ??
-    transaction?.receipt_no ??
-    transaction?.id;
-  if (!rawCode) return;
-  const code = String(rawCode).replace(/^#/, "");
-  if (!code) return;
-  window.localStorage.setItem("lastTransactionCode", code);
-  return code;
-}
-
-type TransactionItemRecord = {
-  id?: number | null;
-  transactionItemId?: number | null;
-  transaction_item_id?: number | null;
-  transactionId?: number | null;
-  transaction_id?: number | null;
-  note?: string | null;
-};
-
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function resolveTransactionId(payload: unknown): number | null {
-  if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
-  const data =
-    typeof record.data === "object" && record.data != null
-      ? (record.data as Record<string, unknown>)
-      : record;
-  return toNumber(
-    data.id ?? data.transactionId ?? data.transaction_id ?? null
-  );
-}
-
-function unwrapArray<T>(payload: unknown): T[] {
-  if (Array.isArray(payload)) return payload as T[];
-  if (!payload || typeof payload !== "object") return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.data)) return record.data as T[];
-  return [];
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function createKitchenOrdersForTransaction(
-  transactionId: number,
-  fallbackNote: string | null
-) {
-  const attempts = 5;
-
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const itemsResult = await fetchTransactionItems();
-    if (itemsResult.ok) {
-      const items = unwrapArray<TransactionItemRecord>(itemsResult.data);
-      const matched = items.filter(
-        (item) =>
-          toNumber(item.transactionId ?? item.transaction_id) ===
-          transactionId
-      );
-
-      if (matched.length > 0) {
-        await Promise.all(
-          matched.map(async (item) => {
-            const itemId = toNumber(
-              item.transactionItemId ??
-                item.transaction_item_id ??
-                item.id
-            );
-            if (!itemId) return;
-            const note =
-              typeof item.note === "string" && item.note.trim()
-                ? item.note.trim()
-                : fallbackNote;
-            await createKitchenOrderStatus({
-              transactionItemId: itemId,
-              status: "queued",
-              note: note ?? null,
-            });
-          })
-        );
-        return;
-      }
-    }
-
-    if (attempt < attempts - 1) {
-      await sleep(500);
-    }
-  }
-}
 
 
 function TabButton({
@@ -690,10 +486,3 @@ function BankWaitingView({
   );
 }
 
-function resolveStoredPlaceId(): number | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem("eaterno-place-id");
-  if (!raw) return null;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : null;
-}

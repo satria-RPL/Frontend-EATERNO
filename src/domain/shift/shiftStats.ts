@@ -1,5 +1,3 @@
-import type { Order } from "@/types/order";
-
 type ApiResult<T = unknown> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number; error: string; data?: unknown };

@@ -10,23 +10,17 @@ export const useNavItems = (): NavItem[] => {
 
   const isNavItemActive = (path: string, nav: string) => path.includes(nav);
 
-  // ⬇️ DETEKSI WAITER
   const isWaiter =
-    pathname.startsWith("/waiter") || pathname.startsWith("/main/waiter");
+    pathname.startsWith("/waiters") || pathname.startsWith("/main/waiters");
 
-  /**
-   * =========================
-   * WAITER SIDEBAR
-   * =========================
-   */
   if (isWaiter) {
     return [
       {
         name: "Table Info",
-        href: "/waiter/table-info",
+        href: "/waiters/tableinfo",
         icon: (
           <Image
-            src="/icon/tableinfo.svg"
+            src="/icon/tableinfo.webp"
             alt="Table Info"
             width={20}
             height={20}
@@ -53,11 +47,6 @@ export const useNavItems = (): NavItem[] => {
     ];
   }
 
-  /**
-   * =========================
-   * DEFAULT (POS / LAINNYA)
-   * =========================
-   */
   return [
     {
       name: "Dashboard",

@@ -1,43 +1,29 @@
 import { NextResponse } from "next/server";
-import { getAuthTokenFromCookie } from "@/lib/session/authSession";
-
-const BACKEND_BASE_URL =
-  process.env.API_BASE_URL || "http://localhost:3000";
+import { apiRequest } from "@/lib/api";
 
 export async function GET() {
   try {
-    const session = await getAuthTokenFromCookie();
-
-    if (!session?.token) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const headers = {
-      Accept: "application/json",
-      Authorization: `${session.tokenType ?? "Bearer"} ${session.token}`,
-    };
-
     const [promotionsRes, rulesRes] = await Promise.all([
-      fetch(`${BACKEND_BASE_URL}/api/promotions`, { headers }),
-      fetch(`${BACKEND_BASE_URL}/api/promotion-rules`, { headers }),
+      apiRequest("/api/promotions", { auth: true }),
+      apiRequest("/api/promotion-rules", { auth: true }),
     ]);
 
-    if (!promotionsRes.ok || !rulesRes.ok) {
+    if (!promotionsRes.ok) {
       return NextResponse.json(
-        { message: "Gagal mengambil data promotion" },
-        { status: 500 }
+        { message: promotionsRes.error ?? "Gagal mengambil data promotion" },
+        { status: promotionsRes.status }
+      );
+    }
+    if (!rulesRes.ok) {
+      return NextResponse.json(
+        { message: rulesRes.error ?? "Gagal mengambil data promotion rules" },
+        { status: rulesRes.status }
       );
     }
 
-    const promotions = await promotionsRes.json();
-    const rules = await rulesRes.json();
-
     return NextResponse.json({
-      promotions,
-      rules,
+      promotions: promotionsRes.data,
+      rules: rulesRes.data,
     });
   } catch (err) {
     console.error("PROMOTION API ERROR:", err);

@@ -31,7 +31,7 @@ const paymentOptions = [
   },
 ];
 
-import { getCartLineKey, useCartStore } from "@/data/cart";
+import { getCartLineKey, useCartStore, type CartAddon } from "@/data/cart";
 import Loading from "./ui/Loading";
 
 function formatRp(value: number) {
@@ -110,7 +110,7 @@ export default function SidebarRight() {
   const itemsCount = cart.reduce((sum, i) => sum + (i.qty || 0), 0);
   const isCartEmpty = cart.length === 0;
   const subtotal = getSubtotal();
-  const taxPercent = 10;
+  const taxPercent = 11;
   const totals = calculateTotals({
     subtotal,
     taxPercent,
@@ -245,7 +245,7 @@ export default function SidebarRight() {
           </div>
         </div>
       )}
-      <aside className="fixed top-22 right-0 bottom-0 w-[360px] border-l border-gray-200 bg-stone-50 p-4 flex flex-col overflow-y-auto hide-scrollbar">
+      <aside className="fixed top-[88px] right-0 bottom-0 w-[360px] border-l border-gray-200 bg-stone-50 p-4 flex flex-col scroll-smooth overflow-y-auto hide-scrollbar">
         {/* HEADER: info meja + kasir */}
         <div className="bg-white rounded-[20px] px-4 py-2 mb-2">
           <div className="mb-4 border-b border-orange-100 pb-2">
@@ -265,7 +265,7 @@ export default function SidebarRight() {
                 className="inline-flex items-center gap-2 rounded-md text-sm font-medium text-orange-500 transition hover:bg-orange-50"
               >
                 <Image
-                  src="/icon/change.svg"
+                  src="/icon/change.webp"
                   alt="Change Table"
                   width={20}
                   height={25}
@@ -276,7 +276,7 @@ export default function SidebarRight() {
             )}
           </div>
 
-          <div className="overflow-y-auto overscroll-y-contain px-4 space-y-4 hide-scrollbar flex-1">
+          <div className="px-4 space-y-4 hide-scrollbar">
             {/* LIST ORDER */}
             <div className="space-y-4 pb-2 border-b border-orange-100">
               {cart.length === 0 && (
@@ -285,7 +285,7 @@ export default function SidebarRight() {
 
               {cart.map((item, idx) => {
                 const addonsTotal = (item.addons || []).reduce(
-                  (s: number, a: any) => s + (a.price || 0) * (a.qty || 0),
+                  (s: number, a: CartAddon) => s + a.price * a.qty,
                   0
                 );
                 const productPrice = item.price ?? 0;
@@ -313,7 +313,7 @@ export default function SidebarRight() {
                         aria-label="remove item"
                       >
                         <Image
-                          src="/icon/trash.png"
+                          src="/icon/trash.webp"
                           height={18}
                           width={18}
                           alt="trash"
@@ -325,16 +325,16 @@ export default function SidebarRight() {
                     {item.addons?.length > 0 && (
                       <div className="flex justify-between text-xs text-gray-500 mb-2">
                         <div>
-                          {item.addons.map((a: any, i: number) => (
+                          {item.addons.map((a: CartAddon, i: number) => (
                             <p key={`${item.productId}-${a.id}-${i}`}>
                               {a.name} × {a.qty}
                             </p>
                           ))}
                         </div>
                         <div className="text-right">
-                          {item.addons.map((a: any, i: number) => (
+                          {item.addons.map((a: CartAddon, i: number) => (
                             <p key={`${item.productId}-${a.id}-price-${i}`}>
-                              + Rp {formatRp((a.price || 0) * (a.qty || 0))}
+                              + Rp {formatRp(a.price * a.qty)}
                             </p>
                           ))}
                         </div>
@@ -360,7 +360,7 @@ export default function SidebarRight() {
                 <span>Rp {formatRp(subtotal)}</span>
               </div>
               <div className="flex justify-between mb-1">
-                <span>Tax (10%)</span>
+                <span>Tax (11%)</span>
                 <span>Rp {formatRp(tax)}</span>
               </div>
               <div className="flex justify-between mb-1">
@@ -423,10 +423,10 @@ export default function SidebarRight() {
 
                     const iconSrc =
                       uiState === "selected"
-                        ? "/icon/selected.svg"
+                        ? "/icon/selected.webp"
                         : uiState === "expired"
-                        ? "/icon/expired.svg"
-                        : "/icon/available.svg";
+                        ? "/icon/expired.webp"
+                        : "/icon/available.webp";
 
                     return (
                       <button

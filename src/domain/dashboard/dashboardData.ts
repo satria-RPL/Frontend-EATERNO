@@ -299,7 +299,7 @@ export function buildDashboardData({
     totalExpense: 0,
     bestSellers: buildBestSellersFromTransactions(transactionsPayload, {
       maxItems: 4,
-      fallbackImage: "/img/coffee.jpg",
+      fallbackImage: "/img/coffee.webp",
     }),
   };
 }

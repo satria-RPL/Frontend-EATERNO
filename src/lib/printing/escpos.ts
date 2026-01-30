@@ -1,6 +1,11 @@
 "use client";
 
 import type { Order } from "@/types/order";
+import {
+  formatCurrency,
+  formatDateTime,
+  formatOrderType,
+} from "@/lib/utils/order-format";
 
 export type SerialPortLike = {
   readable: ReadableStream<Uint8Array> | null;
@@ -53,7 +58,7 @@ export async function buildEscPosPayload(order: Order, options: ReceiptOptions =
   const storeName = options.storeName ?? "Eaterno";
   const cashierName = options.cashierName ?? "-";
   const divider = "-".repeat(width);
-  const logoPath = options.logoPath ?? "/img/brand.png";
+  const logoPath = options.logoPath ?? "/img/brand.webp";
   const logoMaxWidth = options.logoMaxWidth ?? DEFAULT_LOGO_MAX_WIDTH;
 
   const detailItems = order.detailItems ?? [];
@@ -151,32 +156,6 @@ export async function buildEscPosPayload(order: Order, options: ReceiptOptions =
 
   chunks.push(encoder.encode(text), cut);
   return concatChunks(chunks);
-}
-
-function formatCurrency(value: number) {
-  return `Rp ${value.toLocaleString("id-ID")}`;
-}
-
-function formatOrderType(value: string | null | undefined) {
-  if (!value) return "-";
-  const normalized = value.replace(/_/g, " ").toLowerCase();
-  return normalized.replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "-";
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return value;
-  const formatted = new Date(parsed).toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  return formatted.replace(/\//g, "-");
 }
 
 function wrapText(text: string, width: number) {

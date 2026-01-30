@@ -4,13 +4,13 @@ import { apiRequest } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 type RouteContext = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 export async function PUT(request: Request, context: RouteContext) {
-  const { id } = context.params;
+  const { id } = await context.params;
   const payload = await request.json().catch(() => ({}));
 
   const result = await apiRequest(`/api/transactions/${id}`, {
@@ -33,7 +33,7 @@ export async function PUT(request: Request, context: RouteContext) {
 }
 
 export async function GET(_: Request, context: RouteContext) {
-  const { id } = context.params;
+  const { id } = await context.params;
   const result = await apiRequest(`/api/transactions/${id}`, { auth: true });
 
   if (!result.ok) {
@@ -50,7 +50,7 @@ export async function GET(_: Request, context: RouteContext) {
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
-  const { id } = context.params;
+  const { id } = await context.params;
   const payload = await request.json().catch(() => null);
   const init: RequestInit = {
     method: "DELETE",

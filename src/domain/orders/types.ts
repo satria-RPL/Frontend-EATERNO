@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@/types/order";
+import type { OrderStatus } from "@/domain/orders/orderTypes";
 
 export type OrderFilter = "all" | "dinein" | "takeaway";
 
@@ -12,6 +12,7 @@ export type OrderSummary = {
   itemsPreview: string[];
   itemsMoreCount?: number;
   timeAgo: string;
+  timestamp?: number | null;
   itemSku?: string;
   itemAddons?: string[];
   transactionId?: number;

@@ -81,8 +81,8 @@ export async function createTransaction(payload: TransactionPayload) {
   });
 }
 
-export async function fetchTransactions() {
-  return fetchApi("/api/transactions");
+export async function fetchTransactions(options: RequestInit = {}) {
+  return fetchApi("/api/transactions", options);
 }
 
 export async function fetchTransactionItems() {

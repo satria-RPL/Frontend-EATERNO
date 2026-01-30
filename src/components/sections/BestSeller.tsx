@@ -4,7 +4,7 @@ import Image from "next/image";
 import Card from "../cards/Card";
 import { type BestSellerItem } from "@/domain/bestSeller";
 
-const FALLBACK_IMAGE = "/img/coffee.jpg";
+const FALLBACK_IMAGE = "/img/coffee.webp";
 
 type BestSellerProps = {
   items: BestSellerItem[];

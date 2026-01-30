@@ -121,7 +121,7 @@ export async function loginService(username: string, password: string) {
           }
         : undefined,
     };
-  } catch (err) {
+  } catch {
     return { success: false, message: "Koneksi ke server gagal" };
   }
 }

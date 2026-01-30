@@ -61,11 +61,14 @@ export function hasActiveCashierShift(
   const items = unwrapArray<CashierShiftApiItem>(payload);
   const normalizedCashierId = (cashierId ?? "").trim();
 
+  if (!normalizedCashierId) {
+    return false;
+  }
+
   return items.some((item) => {
     if (!isActiveShift(item)) return false;
-    if (!normalizedCashierId) return true;
     const itemCashierId = toStringValue(item.cashierId ?? item.cashier_id).trim();
-    if (!itemCashierId) return true;
+    if (!itemCashierId) return false;
     return itemCashierId === normalizedCashierId;
   });
 }

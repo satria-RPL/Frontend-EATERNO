@@ -1,6 +1,11 @@
 "use client";
 
 import { Order } from "@/types/order";
+import {
+  formatCurrency,
+  formatDateTime,
+  formatOrderType,
+} from "@/lib/utils/order-format";
 
 type OrderDetailModalProps = {
   open: boolean;
@@ -12,32 +17,6 @@ type OrderDetailModalProps = {
   statusError?: string | null;
   printError?: string | null;
 };
-
-function formatCurrency(value: number) {
-  return `Rp ${value.toLocaleString("id-ID")}`;
-}
-
-function formatOrderType(value: string | null | undefined) {
-  if (!value) return "-";
-  const normalized = value.replace(/_/g, " ").toLowerCase();
-  return normalized.replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "-";
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return value;
-  const formatted = new Date(parsed).toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  return formatted.replace(/\//g, "-");
-}
 
 export default function OrderDetailModal({
   open,
@@ -90,8 +69,8 @@ export default function OrderDetailModal({
       : "-";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-[760px] rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-hidden">
+      <div className="w-full max-w-[760px] max-h-full overflow-y-auto hide-scrollbar rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between border-b border-[#e6e1dc] pb-4">
           <h2 className="text-2xl font-semibold text-[#1c1c1c]">
             Detail Order {order.id}

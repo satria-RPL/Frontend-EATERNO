@@ -440,7 +440,7 @@ export default function OpenShiftPage() {
                       const isSelected = option.value === station;
                       const isOccupied =
                         occupiedStationSet.has(option.value) ||
-                        (option.id && occupiedStationSet.has(option.id));
+                        (option.id ? occupiedStationSet.has(option.id) : false);
                       return (
                         <li key={option.value}>
                           <button

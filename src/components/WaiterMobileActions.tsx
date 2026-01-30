@@ -11,12 +11,19 @@ export default function WaiterMobileActions() {
     if (pending) return;
     setPending(true);
     try {
-      await fetch("/auth/logout", {
+      const res = await fetch("/auth/logout", {
         method: "POST",
         credentials: "include",
       });
-    } finally {
+      if (!res.ok) {
+        console.error("Logout gagal", res.status);
+        setPending(false);
+        return;
+      }
       window.location.href = "/auth/login";
+    } catch (error) {
+      console.error("Logout gagal", error);
+      setPending(false);
     }
   };
 

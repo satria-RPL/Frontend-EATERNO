@@ -1,4 +1,4 @@
-import { calculateRounding } from "@/lib/rounding";
+import { calculateRounding } from "@/domain/shared/rounding";
 import type { Coupon } from "./coupons";
 
 type TotalsInput = {
@@ -37,7 +37,7 @@ export function calculateDiscount(
 
 export function calculateTotals({
   subtotal,
-  taxPercent = 10,
+  taxPercent = 11,
   coupons = [],
   selectedCoupons = [],
   roundingStep = 500,

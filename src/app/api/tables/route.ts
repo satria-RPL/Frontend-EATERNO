@@ -1,39 +1,23 @@
 import { NextResponse } from "next/server";
-import { getAuthTokenFromCookie } from "@/lib/session/authSession";
-
-const BACKEND_BASE_URL =
-  process.env.API_BASE_URL || "http://localhost:3000";
+import { apiRequest } from "@/lib/api";
 
 export async function GET() {
   try {
-    const session = await getAuthTokenFromCookie();
+    const result = await apiRequest("/api/tables", { auth: true });
 
-    if (!session?.token) {
+    if (!result.ok) {
       return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
+        { message: result.error ?? "Gagal mengambil data tables" },
+        { status: result.status }
       );
     }
 
-    const res = await fetch(`${BACKEND_BASE_URL}/api/tables`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `${session.tokenType ?? "Bearer"} ${session.token}`,
-      },
-      cache: "no-store",
-    });
+    const tables = result.data;
+    const normalized = Array.isArray(tables)
+      ? tables.map((table) => normalizeTableRecord(table))
+      : tables;
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      return NextResponse.json(
-        { message: err?.message ?? "Gagal mengambil data tables" },
-        { status: res.status }
-      );
-    }
-
-    const tables = await res.json();
-
-    return NextResponse.json(tables);
+    return NextResponse.json(normalized);
   } catch (error) {
     console.error("TABLES API ERROR:", error);
     return NextResponse.json(
@@ -41,4 +25,22 @@ export async function GET() {
       { status: 500 }
     );
   }
+}
+
+function normalizeTableStatus(value: unknown) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return normalized === "available" ? "available" : "not_available";
+}
+
+function normalizeTableRecord(table: unknown) {
+  if (!table || typeof table !== "object") return table;
+  const record = table as Record<string, unknown>;
+  const placeId =
+    record.placeId ?? record.place_id ?? record.placeID ?? record.placeID;
+
+  return {
+    ...record,
+    placeId: placeId ?? null,
+    status: normalizeTableStatus(record.status ?? null),
+  };
 }

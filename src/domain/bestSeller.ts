@@ -36,7 +36,7 @@ export type BestSellerItem = {
   image: string;
 };
 
-const DEFAULT_FALLBACK_IMAGE = "/img/coffee.jpg";
+const DEFAULT_FALLBACK_IMAGE = "/img/coffee.webp";
 const DEFAULT_MAX_ITEMS = 4;
 
 function toNumber(value: unknown): number | null {

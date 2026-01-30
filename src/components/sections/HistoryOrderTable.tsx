@@ -166,9 +166,17 @@ export default function OrderTable({
     setVoidError(null);
     const resolvedId =
       selectedOrder.transactionId ??
-      Number(selectedOrder.id.replace(/\D/g, ""));
+      (() => {
+        const trimmed = selectedOrder.id.trim();
+        const normalized = trimmed.startsWith("#")
+          ? trimmed.slice(1)
+          : trimmed;
+        if (!/^\d+$/.test(normalized)) return null;
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+      })();
 
-    if (!Number.isFinite(resolvedId) || resolvedId <= 0) {
+    if (!resolvedId || resolvedId <= 0) {
       setVoidError("ID transaksi tidak ditemukan.");
       return;
     }

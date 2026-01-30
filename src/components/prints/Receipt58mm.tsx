@@ -3,6 +3,11 @@
 import type { Order } from "@/types/order";
 import type { OrderSummary } from "@/domain/orders/types";
 import Image from "next/image";
+import {
+  formatCurrency,
+  formatDateTime,
+  formatOrderType,
+} from "@/lib/utils/order-format";
 
 type Receipt58mmProps = {
   order: Order;
@@ -10,32 +15,6 @@ type Receipt58mmProps = {
   storeName?: string;
   summary?: OrderSummary | null;
 };
-
-function formatCurrency(value: number) {
-  return `Rp ${value.toLocaleString("id-ID")}`;
-}
-
-function formatOrderType(value: string | null | undefined) {
-  if (!value) return "-";
-  const normalized = value.replace(/_/g, " ").toLowerCase();
-  return normalized.replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "-";
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return value;
-  const formatted = new Date(parsed).toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  return formatted.replace(/\//g, "-");
-}
 
 export default function Receipt58mm({ order, cashierName = "-", storeName = "Eaterno", summary }: Receipt58mmProps) {
   const detailItems = order.detailItems ?? [];
@@ -63,7 +42,7 @@ export default function Receipt58mm({ order, cashierName = "-", storeName = "Eat
   return (
     <div className="receipt-print text-[10px] text-black font-mono leading-relaxed">
       <div className="text-center mb-2">
-        <Image src="img/brand.png" height={100} width={100} alt="Logo" />
+        <Image src="/img/brand.webp" height={100} width={100} alt="Logo" />
         <p className="text-[12px] font-semibold uppercase">{storeName}</p>
         <p className="text-[10px]">Struk Pembayaran</p>
       </div>

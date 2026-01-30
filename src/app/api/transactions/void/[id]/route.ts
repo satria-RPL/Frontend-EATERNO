@@ -4,13 +4,13 @@ import { apiRequest } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 type RouteContext = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 export async function POST(request: Request, context: RouteContext) {
-  const { id } = context.params;
+  const { id } = await context.params;
   const payload = await request.json().catch(() => ({}));
 
   const result = await apiRequest(`/api/transactions/void/${id}`, {

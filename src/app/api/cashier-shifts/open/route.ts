@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { apiRequest } from "@/lib/api";
 import { getAuthCookiePayload } from "@/lib/session/authSession";
-import { resolveOccupiedStationIds } from "@/domain/shift/cashierShiftStatus";
+import {
+  hasActiveCashierShift,
+  resolveOccupiedStationIds,
+} from "@/domain/shift/cashierShiftStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,13 @@ export async function POST(request: Request) {
     toNumber(payload?.cashierId) ??
     toNumber(authPayload?.userId) ??
     null;
+
+  if (!cashierId) {
+    return NextResponse.json(
+      { message: "Kasir tidak valid." },
+      { status: 400 }
+    );
+  }
   const ipAddress = resolveIpAddress(request);
 
   const enrichedPayload = {
@@ -26,9 +36,18 @@ export async function POST(request: Request) {
     payload?.stationId ?? payload?.station_id ?? payload?.station
   ).trim();
 
-  if (stationId) {
-    const shiftStatus = await apiRequest("/api/cashier-shifts", { auth: true });
-    if (shiftStatus.ok) {
+  const shiftStatus = await apiRequest("/api/cashier-shifts", { auth: true });
+  if (shiftStatus.ok) {
+    if (hasActiveCashierShift(shiftStatus.data, String(cashierId))) {
+      return NextResponse.json(
+        {
+          message: "Kasir sudah memiliki shift aktif.",
+          data: { cashierId },
+        },
+        { status: 409 }
+      );
+    }
+    if (stationId) {
       const occupiedStations = resolveOccupiedStationIds(shiftStatus.data);
       if (occupiedStations.includes(stationId)) {
         return NextResponse.json(

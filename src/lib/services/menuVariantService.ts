@@ -27,7 +27,7 @@ async function clientRequest<T = unknown>(path: string): Promise<ApiResult<T>> {
     }
 
     return { ok: true, status: res.status, data: data as T };
-  } catch (err) {
+  } catch {
     return { ok: false, status: 500, error: "Koneksi ke server gagal" };
   }
 }

@@ -69,23 +69,23 @@ export type ProductsListService = {
 };
 
 const DEFAULT_AVAILABLE = 10;
-const FALLBACK_IMAGE = "/img/coffee.jpg";
+const FALLBACK_IMAGE = "/img/coffee.webp";
 const FALLBACK_CATEGORY: ProductCategory = {
   id: "all",
   label: "All Menu",
-  icon: "/icon/forkandspoon.png",
+  icon: "/icon/forkandspoon.webp",
 };
 
 const CATEGORY_ICON_MAP: Record<string, string> = {
-  beverages: "/icon/coffee.png",
-  beverage: "/icon/coffee.png",
-  drink: "/icon/coffee.png",
-  drinks: "/icon/coffee.png",
-  food: "/icon/ricebowl.png",
-  rice: "/icon/ricebowl.png",
-  ricebowl: "/icon/ricebowl.png",
-  tea: "/icon/teapot.png",
-  juice: "/icon/juice.png",
+  beverages: "/icon/coffee.webp",
+  beverage: "/icon/coffee.webp",
+  drink: "/icon/coffee.webp",
+  drinks: "/icon/coffee.webp",
+  food: "/icon/ricebowl.webp",
+  rice: "/icon/ricebowl.webp",
+  ricebowl: "/icon/ricebowl.webp",
+  tea: "/icon/teapot.webp",
+  juice: "/icon/juice.webp",
   pasta: "/icon/pasta.webp",
 };
 
@@ -220,7 +220,7 @@ function buildCategoriesFromMenus(menus: MenuApiItem[]): ProductCategory[] {
   const categories = categoryIds.map((id) => ({
     id: String(id),
     label: `Kategori ${id}`,
-    icon: "/icon/forkandspoon.png",
+    icon: "/icon/forkandspoon.webp",
   }));
 
   if (categories.length === 0) {
@@ -254,7 +254,7 @@ function buildCategoriesFromEndpoint(
         item.image ??
         item.imageUrl ??
         item.image_url ??
-        "/icon/forkandspoon.png";
+        "/icon/forkandspoon.webp";
 
       const resolvedIcon = resolveCategoryIcon(labelSource, icon);
 

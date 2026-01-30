@@ -54,7 +54,6 @@ export function middleware(request: NextRequest) {
   }
 
   const isAuthRoute = pathname.startsWith("/auth");
-  const isPublicShiftRoute = pathname.startsWith("/public/shift");
   const isMainRoute = pathname.startsWith("/main");
   const isWaiterRoute = pathname.startsWith("/waiters");
 

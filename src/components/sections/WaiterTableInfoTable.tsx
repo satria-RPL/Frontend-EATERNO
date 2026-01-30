@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpDown, Filter } from "lucide-react";
-const channel = new BroadcastChannel("table-status");
+import Pagination from "../ui/Pagination";
+import { TablesService } from "@/lib/services/tablesService";
 
 type TableInfo = {
   id: number;
   placeId: number;
   name: string;
   capacity: number;
-  status: "available" | "not_available" | "occupied";
+  status: "available" | "not_available";
 };
 
 export default function WaiterTableInfoTable() {
@@ -21,39 +22,14 @@ export default function WaiterTableInfoTable() {
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-
-  const applyOverrides = (
-    data: TableInfo[],
-    overrides: Record<number, TableInfo["status"]>
-  ) =>
-    data.map((table) => ({
-      ...table,
-      status: overrides[table.id] ?? table.status,
-    }));
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   const loadTables = async (isActive?: () => boolean) => {
     setLoading(true);
     try {
-      const [tablesRes, overridesRes] = await Promise.all([
-        fetch("/api/tables", {
-          credentials: "include",
-          cache: "no-store",
-        }),
-        fetch("/api/table-status", { cache: "no-store" }),
-      ]);
-
-      if (!tablesRes.ok) {
-        const err = await tablesRes.json().catch(() => null);
-        throw new Error(err?.message ?? "Gagal mengambil data tables");
-      }
-
-      const data = await tablesRes.json();
-      const overrides = overridesRes.ok
-        ? await overridesRes.json()
-        : {};
-
+      const data = await TablesService.getAll();
       if (!isActive || isActive()) {
-        setTables(applyOverrides(data, overrides));
+        setTables(data);
       }
     } catch {
       if (!isActive || isActive()) {
@@ -66,11 +42,15 @@ export default function WaiterTableInfoTable() {
     }
   };
 
-  const refreshOverrides = async () => {
-    const res = await fetch("/api/table-status", { cache: "no-store" });
-    if (!res.ok) return;
-    const overrides = await res.json();
-    setTables((prev) => applyOverrides(prev, overrides));
+  const refreshTables = async (isActive?: () => boolean) => {
+    try {
+      const data = await TablesService.getAll();
+      if (!isActive || isActive()) {
+        setTables(data);
+      }
+    } catch {
+      // Silent refresh failures keep existing UI state.
+    }
   };
 
   useEffect(() => {
@@ -82,7 +62,7 @@ export default function WaiterTableInfoTable() {
 
     const intervalId = window.setInterval(() => {
       if (!active) return;
-      refreshOverrides();
+      refreshTables(isActive);
     }, 5000);
 
     const handler = (event: MessageEvent) => {
@@ -94,16 +74,24 @@ export default function WaiterTableInfoTable() {
       if (!tableId || !status) return;
       setTables((prev) =>
         prev.map((table) =>
-          table.id === tableId ? { ...table, status } : table
-        )
+          table.id === tableId ? { ...table, status } : table,
+        ),
       );
     };
-    channel.addEventListener("message", handler);
+    if (typeof BroadcastChannel !== "undefined") {
+      const channel = new BroadcastChannel("table-status");
+      channelRef.current = channel;
+      channel.addEventListener("message", handler);
+    }
 
     return () => {
       active = false;
       window.clearInterval(intervalId);
-      channel.removeEventListener("message", handler);
+      if (channelRef.current) {
+        channelRef.current.removeEventListener("message", handler);
+        channelRef.current.close();
+        channelRef.current = null;
+      }
     };
   }, []);
 
@@ -112,37 +100,40 @@ export default function WaiterTableInfoTable() {
     return tables.slice(start, start + perPage);
   }, [tables, page, perPage]);
 
-  // Toggle the status of a table by id
-  //ini yang di ganti
   const toggleStatus = async (table: TableInfo) => {
-    const nextStatus = table.status === "available" ? "not_available" : "available";
+    const prevStatus = table.status;
+    const nextStatus =
+      table.status === "available" ? "not_available" : "available";
     setTables((prevTables) =>
       prevTables.map((t) =>
-        t.id === table.id ? { ...t, status: nextStatus } : t
-      )
+        t.id === table.id ? { ...t, status: nextStatus } : t,
+      ),
     );
 
     try {
-      const res = await fetch("/api/table-status", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tableId: table.id, status: nextStatus }),
+      await TablesService.update(table.id, {
+        placeId: table.placeId,
+        name: table.name,
+        capacity: table.capacity,
+        status: nextStatus,
       });
-      if (!res.ok) {
-        throw new Error("Gagal update status meja");
-      }
-      channel.postMessage({ tableId: table.id, status: nextStatus });
+      channelRef.current?.postMessage({
+        tableId: table.id,
+        status: nextStatus,
+      });
     } catch {
       setTables((prevTables) =>
         prevTables.map((t) =>
-          t.id === table.id ? { ...t, status: table.status } : t
-        )
+          t.id === table.id && t.status === nextStatus
+            ? { ...t, status: prevStatus }
+            : t,
+        ),
       );
     }
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4 overflow-hidden bg-[#F8F8FA] p-3 sm:h-[calc(100vh-8rem)] sm:gap-6 sm:p-4">
+    <div className="flex flex-col gap-4 overflow-hidden p-3 sm:h-[calc(100vh-8rem)] sm:gap-6 sm:p-4">
       {/* HEADER */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-semibold sm:text-2xl">Table Info</h2>
@@ -163,10 +154,10 @@ export default function WaiterTableInfoTable() {
             </button>
 
             {filterOpen && (
-                <div className="absolute right-0 z-50 mt-2 w-36 rounded-lg bg-white p-2 text-[11px] shadow-md">
-                  <div className="px-2 py-1 text-zinc-500">Filter UI only</div>
-                </div>
-              )}
+              <div className="absolute right-0 z-50 mt-2 w-36 rounded-lg bg-white p-2 text-[11px] shadow-md">
+                <div className="px-2 py-1 text-zinc-500">Filter UI only</div>
+              </div>
+            )}
           </div>
 
           <div className="relative">
@@ -199,10 +190,18 @@ export default function WaiterTableInfoTable() {
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="text-zinc-500">
                   <td className="px-2 py-3 text-center sm:px-4 sm:py-4">#</td>
-                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">Table No</td>
-                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">Table for</td>
-                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">Status</td>
-                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">Aksi</td>
+                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">
+                    Table No
+                  </td>
+                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">
+                    Table for
+                  </td>
+                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">
+                    Status
+                  </td>
+                  <td className="px-2 py-3 text-center sm:px-4 sm:py-4">
+                    Aksi
+                  </td>
                 </tr>
               </thead>
 
@@ -237,7 +236,9 @@ export default function WaiterTableInfoTable() {
                               ? "border-[#EF4444] bg-red-50"
                               : "border-[#16a34a] bg-green-50"
                           }`}
-                          aria-label={isAvailable ? "Available" : "Not available"}
+                          aria-label={
+                            isAvailable ? "Available" : "Not available"
+                          }
                         >
                           <span
                             className={`h-2.5 w-2.5 rounded-full sm:h-3 sm:w-3 ${
@@ -259,7 +260,9 @@ export default function WaiterTableInfoTable() {
                           >
                             <span
                               className={`absolute top-0.5 h-5 w-5 rounded-full transition sm:top-1 sm:h-6 sm:w-6 ${!isAvailable ? "right-0.5 bg-[#EF4444]" : "left-0.5 bg-[#6B7280]"}`}
-                              style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+                              style={{
+                                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                              }}
                             />
                           </button>
                         </div>
@@ -273,7 +276,6 @@ export default function WaiterTableInfoTable() {
         </div>
       </div>
 
-      {/* PAGINATION
       <div className="mt-4 flex items-center justify-between text-sm">
         <p className="text-[#6f6f6f]">
           Data ditampilkan {Math.min(page * perPage, tables.length)} dari{" "}
@@ -287,7 +289,7 @@ export default function WaiterTableInfoTable() {
           perPage={perPage}
           setPerPage={setPerPage}
         />
-      </div> */}
+      </div>
     </div>
   );
 }

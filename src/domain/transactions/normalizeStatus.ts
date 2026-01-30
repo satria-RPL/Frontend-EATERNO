@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@/types/order";
+import type { OrderStatus } from "@/domain/orders/orderTypes";
 
 export function normalizeStatus(value: unknown): OrderStatus {
   const normalized = String(value ?? "").trim().toLowerCase();
@@ -14,7 +14,15 @@ export function normalizeStatus(value: unknown): OrderStatus {
     return "proses";
   }
 
-  if (normalized === "cancel" || normalized === "cancelled" || normalized === "canceled") {
+  if (
+    normalized === "cancel" ||
+    normalized === "cancelled" ||
+    normalized === "canceled" ||
+    normalized === "void" ||
+    normalized === "voided" ||
+    normalized === "batal" ||
+    normalized === "dibatalkan"
+  ) {
     return "cancel";
   }
 

@@ -2,27 +2,27 @@ export const categories = [
   {
     id: "all",
     label: "All Menu",
-    icon: "/icon/forkandspoon.png",
+    icon: "/icon/forkandspoon.webp",
   },
   {
     id: "coffee",
     label: "Coffee",
-    icon: "/icon/coffee.png",
+    icon: "/icon/coffee.webp",
   },
   {
     id: "tea",
     label: "Tea",
-    icon: "/icon/teapot.png",
+    icon: "/icon/teapot.webp",
   },
   {
     id: "juice",
     label: "Juice",
-    icon: "/icon/juice.png",
+    icon: "/icon/juice.webp",
   },
   {
     id: "rice",
     label: "Rice",
-    icon: "/icon/ricebowl.png",
+    icon: "/icon/ricebowl.webp",
   },
   {
     id: "pasta",
@@ -37,7 +37,7 @@ export const products = [
     name: "Kopi",
     available: 24,
     price: 20000,
-    image: "/img/coffee.jpg",
+    image: "/img/coffee.webp",
     category: "coffee",
   },
   {
@@ -45,7 +45,7 @@ export const products = [
     name: "Teh",
     available: 12,
     price: 25000,
-    image: "/img/coffee.jpg",
+    image: "/img/coffee.webp",
     category: "tea",
   },
   {
@@ -53,7 +53,7 @@ export const products = [
     name: "Jus Apel",
     available: 18,
     price: 15000,
-    image: "/img/coffee.jpg",
+    image: "/img/coffee.webp",
     category: "juice",
   },
   {
@@ -61,7 +61,7 @@ export const products = [
     name: "Naspad",
     available: 10,
     price: 18000,
-    image: "/img/coffee.jpg",
+    image: "/img/coffee.webp",
     category: "rice",
   },
   {
@@ -69,7 +69,7 @@ export const products = [
     name: "Pizza",
     available: 10,
     price: 18000,
-    image: "/img/coffee.jpg",
+    image: "/img/coffee.webp",
     category: "pasta",
   },
   {
@@ -77,7 +77,7 @@ export const products = [
     name: "Es Teh",
     available: 10,
     price: 18000,
-    image: "/img/coffee.jpg",
+    image: "/img/coffee.webp",
     category: "tea",
   },
 ];

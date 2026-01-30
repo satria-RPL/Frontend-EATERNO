@@ -1,26 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Clock, RotateCcw } from "lucide-react";
-import {
-  fetchOrders,
-  fetchTransactionById,
-  updateTransactionStatus,
-} from "@/lib/services/orderService";
+import { loadKitchenOrdersSnapshot } from "@/application/kitchen/loadKitchenOrders";
+import { resolveKitchenOrderDetail } from "@/application/kitchen/resolveKitchenOrderDetail";
+import { updateKitchenStatus } from "@/application/kitchen/updateKitchenStatus";
 import type { Order } from "@/types/order";
 import OrderDetailKitchenModal from "@/components/modals/OrderDetailKitchenModal";
 
 import type { OrderSummary } from "@/data/orders";
-import {
-  applyKitchenOrderStatuses,
-  createKitchenOrdersLoader,
-} from "@/domain/kitchenOrders";
-import {
-  fetchKitchenOrders,
-  fetchKitchenOrderStatuses,
-  updateKitchenOrderStatus,
-  createKitchenOrderStatus,
-} from "@/lib/services/kitchenOrderService";
 
 type KitchenFilter = "all" | "dinein" | "takeaway" | "done" | "void";
 
@@ -33,6 +21,7 @@ const FILTERS: Array<{ id: KitchenFilter; label: string }> = [
 ];
 
 export default function KitchenListClient() {
+  const isActiveRef = useRef(true);
   const [activeFilter, setActiveFilter] = useState<KitchenFilter>("all");
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,94 +35,96 @@ export default function KitchenListClient() {
     Record<string, OrderSummary["kitchenStatus"]>
   >({});
 
-  const { loadKitchenOrders } = useMemo(() => createKitchenOrdersLoader({ fetchKitchenOrders }), []);
+  const getStatusKey = useCallback(
+    (order: OrderSummary) =>
+      `${order.transactionId ?? "t"}:${order.transactionItemId ?? order.id}`,
+    []
+  );
 
-  const loadOrders = async () => {
+  const getEffectiveStatus = useCallback(
+    (order: OrderSummary) => {
+      const key = getStatusKey(order);
+      return statusOverrides[key] ?? order.kitchenStatus ?? "queued";
+    },
+    [getStatusKey, statusOverrides]
+  );
+
+  const isVoidOrder = useCallback(
+    (order: OrderSummary) => order.transactionStatus === "cancel",
+    []
+  );
+
+  const loadOrders = useCallback(async () => {
+    if (!isActiveRef.current) return;
     setIsLoading(true);
-    const result = await loadKitchenOrders();
-    if (result.error) {
+    const result = await loadKitchenOrdersSnapshot();
+    if (!isActiveRef.current) return;
+    if (!result.ok) {
       console.error("Failed to load kitchen orders", result.error);
       setOrders([]);
       setIsLoading(false);
       return;
     }
-    const statuses = await fetchKitchenOrderStatuses();
-    const merged = statuses.ok
-      ? applyKitchenOrderStatuses(result.orders, statuses.data)
-      : result.orders;
-    setOrders(merged);
-    setStatusOverrides({});
-
-    const missing = merged.filter(
-      (order) =>
-        order.transactionItemId != null &&
-        order.kitchenOrderId == null
-    );
-    if (missing.length > 0) {
-      const createdMap = new Map<string, number>();
-      for (const order of missing) {
-        const created = await createKitchenOrderStatus({
-          transactionItemId: order.transactionItemId!,
-          status: "queued",
-          note: order.kitchenNote ?? null,
-        });
-        const createdId =
-          created.ok &&
-          typeof created.data === "object" &&
-          created.data
-            ? (created.data as { id?: number }).id
-            : undefined;
-        if (createdId) {
-          createdMap.set(getStatusKey(order), createdId);
+    const merged = result.orders;
+    setOrders((prev) => {
+      const voidOrders = prev.filter(isVoidOrder);
+      if (voidOrders.length === 0) return merged;
+      const nextMap = new Map<string, OrderSummary>();
+      merged.forEach((order) => nextMap.set(getStatusKey(order), order));
+      voidOrders.forEach((order) => {
+        const key = getStatusKey(order);
+        if (!nextMap.has(key)) {
+          nextMap.set(key, order);
         }
-      }
-      if (createdMap.size > 0) {
-        setOrders((prev) =>
-          prev.map((order) => {
-            const createdId = createdMap.get(getStatusKey(order));
-            return createdId
-              ? { ...order, kitchenOrderId: createdId }
-              : order;
-          })
-        );
-      }
-    }
+      });
+      return Array.from(nextMap.values());
+    });
+    setStatusOverrides({});
     setIsLoading(false);
-  };
+  }, [
+    getStatusKey,
+    isVoidOrder,
+  ]);
 
   useEffect(() => {
+    isActiveRef.current = true;
     loadOrders();
     const intervalId = window.setInterval(() => {
       loadOrders();
     }, 15000);
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  const getStatusKey = (order: OrderSummary) =>
-    `${order.transactionId ?? "t"}:${order.transactionItemId ?? order.id}`;
-
-  const getEffectiveStatus = (order: OrderSummary) => {
-    const key = getStatusKey(order);
-    return statusOverrides[key] ?? order.kitchenStatus ?? "queued";
-  };
+    return () => {
+      isActiveRef.current = false;
+      window.clearInterval(intervalId);
+    };
+  }, [loadOrders]);
 
   const filteredOrders = useMemo(() => {
     if (activeFilter === "all") {
-      return orders.filter((order) => getEffectiveStatus(order) !== "done");
+      return orders.filter(
+        (order) => !isVoidOrder(order) && getEffectiveStatus(order) !== "done"
+      );
     }
     if (activeFilter === "dinein" || activeFilter === "takeaway") {
       return orders.filter(
         (order) =>
-          order.type === activeFilter && getEffectiveStatus(order) !== "done"
+          order.type === activeFilter &&
+          !isVoidOrder(order) &&
+          getEffectiveStatus(order) !== "done"
       );
     }
     if (activeFilter === "done") {
-      return orders.filter((order) => getEffectiveStatus(order) === "done");
+      return orders.filter(
+        (order) => !isVoidOrder(order) && getEffectiveStatus(order) === "done"
+      );
+    }
+    if (activeFilter === "void") {
+      return orders.filter((order) => isVoidOrder(order));
     }
     return [];
-  }, [activeFilter, orders, statusOverrides]);
+  }, [activeFilter, orders, getEffectiveStatus, isVoidOrder]);
 
   const getStatusLabel = (order: OrderSummary) => {
+    if (isVoidOrder(order)) return "Dibatalkan";
     const status = getEffectiveStatus(order);
     if (status === "queued") return "Queued";
     if (status === "done") return "Selesai";
@@ -157,46 +148,25 @@ export default function KitchenListClient() {
     });
 
     return { queuedOrders: queued, prosesOrders: proses, doneOrders: done };
-  }, [filteredOrders, statusOverrides]);
+  }, [filteredOrders, getEffectiveStatus]);
 
   const handleOpenDetail = async (order: OrderSummary) => {
-    const transactionId = order.transactionId ?? null;
-    let resolvedOrder: Order | null = null;
-
-    if (transactionId != null) {
-      const result = await fetchTransactionById(transactionId);
-      if (result.ok) {
-        resolvedOrder = result.data;
-      }
-    }
-
-    if (!resolvedOrder) {
-      let ordersData = detailOrders;
-      if (!ordersData) {
-        ordersData = await fetchOrders();
-        setDetailOrders(ordersData);
-      }
-
-      const matched =
-        transactionId != null
-          ? ordersData?.find(
-              (item) => item.id.replace(/\D/g, "") === String(transactionId)
-            ) ?? null
-          : ordersData?.find(
-              (item) => item.id.replace(/\D/g, "") === String(order.id)
-            ) ?? null;
-
-      resolvedOrder = matched ?? null;
-    }
+    const { order: resolvedOrder, ordersCache } = await resolveKitchenOrderDetail(
+      order,
+      detailOrders
+    );
 
     if (!resolvedOrder) {
       console.warn(
         "Order detail tidak ditemukan untuk",
-        transactionId ?? order.id
+        order.transactionId ?? order.id
       );
       return;
     }
 
+    if (!detailOrders && ordersCache) {
+      setDetailOrders(ordersCache);
+    }
     setSelectedOrder(resolvedOrder);
     setSelectedSummary((prev) => ({
       ...(prev ?? order),
@@ -233,62 +203,28 @@ export default function KitchenListClient() {
       prev ? { ...prev, kitchenStatus: nextStatus } : prev
     );
 
-    const applyTransactionReady = async () => {
-      if (nextStatus !== "done") return;
-      if (order.transactionId == null) return;
-      const related = orders.filter(
-        (item) => item.transactionId === order.transactionId
-      );
-      if (related.length === 0) return;
-      const allDone = related.every((item) => {
-        const itemKey = getStatusKey(item);
-        const resolved =
-          itemKey === key
-            ? nextStatus
-            : nextOverrides[itemKey] ?? item.kitchenStatus ?? "queued";
-        return resolved === "done";
-      });
-      if (!allDone) return;
-      await updateTransactionStatus(order.transactionId, "ready_to_pickup");
-    };
+    const result = await updateKitchenStatus({
+      order,
+      nextStatus,
+      orders,
+      statusOverrides: nextOverrides,
+    });
 
-    if (order.kitchenOrderId) {
-      const result = await updateKitchenOrderStatus(
-        order.kitchenOrderId,
-        nextStatus ?? "queued"
-      );
-      if (result.ok) {
-        await applyTransactionReady();
-        loadOrders();
-        return;
+    if (result.ok) {
+      if (result.createdId) {
+        setOrders((prev) =>
+          prev.map((item) =>
+            getStatusKey(item) === key
+              ? { ...item, kitchenOrderId: result.createdId }
+              : item
+          )
+        );
+        setSelectedSummary((prev) =>
+          prev ? { ...prev, kitchenOrderId: result.createdId } : prev
+        );
       }
-    } else if (order.transactionItemId != null) {
-      const created = await createKitchenOrderStatus({
-        transactionItemId: order.transactionItemId,
-        status: nextStatus ?? "queued",
-        note: order.kitchenNote ?? null,
-      });
-      if (created.ok) {
-        const createdId =
-          typeof created.data === "object" && created.data
-            ? (created.data as { id?: number }).id
-            : undefined;
-        if (createdId) {
-          setOrders((prev) =>
-            prev.map((item) =>
-              getStatusKey(item) === key
-                ? { ...item, kitchenOrderId: createdId }
-                : item
-            )
-          );
-          setSelectedSummary((prev) =>
-            prev ? { ...prev, kitchenOrderId: createdId } : prev
-          );
-        }
-        await applyTransactionReady();
-        loadOrders();
-        return;
-      }
+      loadOrders();
+      return;
     }
 
     setStatusOverrides((prev) => ({
@@ -307,8 +243,9 @@ export default function KitchenListClient() {
     );
   };
 
-  const formatTimestamp = () =>
-    new Date().toLocaleString("id-ID", {
+  const formatTimestamp = (order: OrderSummary) => {
+    if (order.timestamp == null) return "-";
+    return new Date(order.timestamp).toLocaleString("id-ID", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -317,6 +254,7 @@ export default function KitchenListClient() {
       second: "2-digit",
       hour12: false,
     });
+  };
 
   const getQueueLabel = (order: OrderSummary) => {
     const value = String(order.id ?? "").replace(/\D/g, "");
@@ -340,6 +278,7 @@ export default function KitchenListClient() {
   };
 
   const getStatusColor = (order: OrderSummary) => {
+    if (isVoidOrder(order)) return "#E02929";
     const status = getEffectiveStatus(order);
     if (status === "queued") return "#E02929";
     if (status === "done") return "var(--kitchencard_done)";
@@ -429,7 +368,7 @@ export default function KitchenListClient() {
                 <span>{getHeaderMeta(order)}</span>
               </div>
               <div className={`flex items-center justify-between text-[10px] ${headerTextColor} opacity-90`}>
-                <span>{formatTimestamp()}</span>
+                <span>{formatTimestamp(order)}</span>
                 <span>{order.type === "dinein" ? "Dine In" : "TakeAway"}</span>
               </div>
             </div>
@@ -514,15 +453,26 @@ export default function KitchenListClient() {
             {FILTERS.map((filter) => {
               const count =
                 filter.id === "all"
-                  ? orders.filter((order) => getEffectiveStatus(order) !== "done").length
+                  ? orders.filter(
+                      (order) =>
+                        !isVoidOrder(order) &&
+                        getEffectiveStatus(order) !== "done"
+                    ).length
                   : filter.id === "dinein" || filter.id === "takeaway"
                   ? orders.filter(
                       (order) =>
                         order.type === filter.id &&
+                        !isVoidOrder(order) &&
                         getEffectiveStatus(order) !== "done"
                     ).length
                   : filter.id === "done"
-                  ? orders.filter((order) => getEffectiveStatus(order) === "done").length
+                  ? orders.filter(
+                      (order) =>
+                        !isVoidOrder(order) &&
+                        getEffectiveStatus(order) === "done"
+                    ).length
+                  : filter.id === "void"
+                  ? orders.filter((order) => isVoidOrder(order)).length
                   : 0;
 
               const isActive = activeFilter === filter.id;
@@ -560,14 +510,16 @@ export default function KitchenListClient() {
       </section>
 
       <div className="mt-12 space-y-4">
-        {activeFilter === "done"
-          ? renderOrderRow(doneOrders, true)
-          : (
-            <>
-              {renderOrderRow(queuedOrders)}
-              {renderOrderRow(prosesOrders)}
-            </>
-          )}
+        {activeFilter === "void" ? (
+          renderOrderRow(filteredOrders, true)
+        ) : activeFilter === "done" ? (
+          renderOrderRow(doneOrders, true)
+        ) : (
+          <>
+            {renderOrderRow(queuedOrders)}
+            {renderOrderRow(prosesOrders)}
+          </>
+        )}
       </div>
 
       <OrderDetailKitchenModal

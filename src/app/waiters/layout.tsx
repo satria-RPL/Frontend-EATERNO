@@ -29,7 +29,7 @@ export default async function WaitersLayout({
       </div>
 
       <main
-        className="pt-24 px-4 transition-all duration-300 sm:pt-28 sm:px-6 md:pr-12 md:pl-0 md:ml-[calc(var(--sidebar-width)+1rem)]"
+        className="bg-(--background) pt-24 px-4 transition-all duration-300 sm:pt-28 sm:px-6 md:pr-12 md:pl-0 md:ml-[calc(var(--sidebar-width)+1rem)]"
       >
         <div className="w-full">{children}</div>
       </main>

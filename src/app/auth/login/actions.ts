@@ -20,11 +20,25 @@ export async function handleLogin(
 
   const result = await loginUser(username, password);
 
-  if (!result.success || !result.user || !result.token) {
+  if (!result.success || !result.token) {
     return { error: result.message ?? "Login gagal, token tidak valid." };
   }
 
-  const user = result.user;
+  const fallbackUser = {
+    id: result.userId ?? null,
+    name: username,
+    username,
+    role: "",
+  };
+  const user = result.user
+    ? {
+        ...fallbackUser,
+        ...result.user,
+        name: result.user.name ?? result.user.username ?? fallbackUser.name,
+        username: result.user.username ?? fallbackUser.username,
+        role: result.user.role ?? fallbackUser.role,
+      }
+    : fallbackUser;
 
   await setSessionCookie(
     JSON.stringify({
