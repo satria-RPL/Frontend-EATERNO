@@ -144,6 +144,11 @@
   .bg-gray-400 {
     background-color: color-mix(in srgb, var(--text-default) 30%, white);
   }
+
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 240px 180px;
+  }
 }
 
 .hide-scrollbar {

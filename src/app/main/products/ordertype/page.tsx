@@ -54,6 +54,7 @@ export default function OrderType() {
       persistCheckoutState({
         customerName: customerName.trim(),
         orderType: "takeaway",
+        tableId: null,
       });
       router.push(`/main/products/list?${params.toString()}`);
     } else {
@@ -77,7 +78,7 @@ export default function OrderType() {
         <button
           onClick={() => {
             setSelected("takeaway");
-            persistCheckoutState({ orderType: "takeaway" });
+            persistCheckoutState({ orderType: "takeaway", tableId: null });
           }}
           className={`border-2 rounded-2xl p-10 flex flex-col items-center gap-2 transition
             ${

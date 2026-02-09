@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { memo } from "react";
 
 type Product = {
   id: number;
@@ -14,7 +15,7 @@ type ProductsGridProps = {
   onAddToCart: (product: Product) => void;
 };
 
-export function ProductsGrid({ products, onAddToCart }: ProductsGridProps) {
+function ProductsGridComponent({ products, onAddToCart }: ProductsGridProps) {
   return (
     <section className="mt-10">
       <h2 className="font-semibold text-2xl mb-3">Select Menu</h2>
@@ -23,7 +24,7 @@ export function ProductsGrid({ products, onAddToCart }: ProductsGridProps) {
         {products.map((product) => (
           <div
             key={product.id}
-            className="border border-gray-300 rounded-xl p-4 flex flex-col gap-3 shadow-sm"
+            className="cv-auto border border-gray-300 rounded-xl p-4 flex flex-col gap-3 shadow-sm"
           >
             <div className="flex items-start gap-3">
               <Image
@@ -56,3 +57,5 @@ export function ProductsGrid({ products, onAddToCart }: ProductsGridProps) {
     </section>
   );
 }
+
+export const ProductsGrid = memo(ProductsGridComponent);

@@ -230,6 +230,17 @@ function buildCategoriesFromMenus(menus: MenuApiItem[]): ProductCategory[] {
   return [FALLBACK_CATEGORY, ...categories];
 }
 
+function filterCategoriesByProducts(
+  categories: ProductCategory[],
+  products: ProductItem[]
+) {
+  if (categories.length === 0) return categories;
+  const productCategoryIds = new Set(products.map((item) => item.category));
+  return categories.filter(
+    (category) => category.id === FALLBACK_CATEGORY.id || productCategoryIds.has(category.id)
+  );
+}
+
 function buildCategoriesFromEndpoint(
   items: CategoryApiItem[]
 ): ProductCategory[] | null {
@@ -310,7 +321,10 @@ export function createProductsListLoader({
     const categories =
       buildCategoriesFromEndpoint(categoriesRaw) ?? buildCategoriesFromMenus(menus);
 
-    return { products, categories };
+    return {
+      products,
+      categories: filterCategoriesByProducts(categories, products),
+    };
   }
 
   return { loadProductsList };

@@ -1,6 +1,7 @@
 "use client";
 
 import Card from "../cards/Card";
+import { memo, useMemo } from "react";
 import { FaChartLine } from "react-icons/fa";
 import { FaWallet } from "react-icons/fa";
 
@@ -9,14 +10,17 @@ type TotalBalanceProps = {
   totalExpense?: number;
 };
 
-export default function TotalBalance({
+function TotalBalanceComponent({
   totalIncome,
   totalExpense = 0,
 }: TotalBalanceProps) {
-  const balance = totalIncome - totalExpense;
+  const balance = useMemo(
+    () => totalIncome - totalExpense,
+    [totalIncome, totalExpense]
+  );
 
   return (
-    <Card>
+    <Card className="cv-auto">
       <div className="p-2">
         <h2 className="text-2xl font-medium mb-2">Total Balance</h2>
 
@@ -71,3 +75,5 @@ export default function TotalBalance({
     </Card>
   );
 }
+
+export default memo(TotalBalanceComponent);

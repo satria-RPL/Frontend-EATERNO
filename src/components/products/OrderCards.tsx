@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import { memo, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import type { OrderSummary } from "@/data/orders";
 
@@ -66,7 +66,7 @@ function resolveUrgencyMixPercent(timeAgo: string): number {
   return steps[steps.length - 1].mix;
 }
 
-export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
+function OrderCardsComponent({ orders, scrollRef }: OrderCardsProps) {
   const router = useRouter();
 
   return (
@@ -103,7 +103,7 @@ export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
                 router.push("/main/orderhistory");
               }
             }}
-            className="w-[228px] h-[110px] shrink-0 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col select-none cursor-pointer"
+            className="cv-auto w-[228px] h-[110px] shrink-0 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col select-none cursor-pointer"
           >
             <div className="flex items-center justify-between gap-2 px-4 py-2 min-w-0">
               <p className="font-semibold text-sm text-default truncate">
@@ -150,3 +150,5 @@ export function OrderCards({ orders, scrollRef }: OrderCardsProps) {
     </div>
   );
 }
+
+export const OrderCards = memo(OrderCardsComponent);

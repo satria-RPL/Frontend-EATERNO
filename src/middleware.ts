@@ -14,7 +14,7 @@ function parseAuthToken(raw: string | null): string | null {
     }
     return null;
   } catch {
-    return raw.trim() || null;
+    return null;
   }
 }
 

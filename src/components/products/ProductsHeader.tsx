@@ -1,5 +1,6 @@
 import type { OrderFilter, OrderSummary } from "@/data/orders";
 import { ArrowLeft } from "lucide-react";
+import { memo, useMemo } from "react";
 
 type FilterOption = { id: string; label: string; value: OrderFilter };
 
@@ -11,13 +12,25 @@ type ProductsHeaderProps = {
   onBack: () => void; // ⬅️ TAMBAH
 };
 
-export function ProductsHeader({
+function ProductsHeaderComponent({
   activeFilter,
   filters,
   orders,
   onChangeFilter,
   onBack,
 }: ProductsHeaderProps) {
+  const counts = useMemo(() => {
+    const total = orders.length;
+    const byType: Record<string, number> = { dinein: 0, takeaway: 0 };
+    orders.forEach((order) => {
+      const key = order.type;
+      if (key in byType) {
+        byType[key] += 1;
+      }
+    });
+    return { total, ...byType };
+  }, [orders]);
+
   return (
     <section className="flex items-start justify-between mb-3">
       {/* LEFT */}
@@ -28,8 +41,8 @@ export function ProductsHeader({
           {filters.map((filter) => {
             const count =
               filter.value === "all"
-                ? orders.length
-                : orders.filter((order) => order.type === filter.value).length;
+                ? counts.total
+                : counts[filter.value] ?? 0;
 
             const isActive = activeFilter === filter.value;
 
@@ -69,3 +82,5 @@ export function ProductsHeader({
     </section>
   );
 }
+
+export const ProductsHeader = memo(ProductsHeaderComponent);

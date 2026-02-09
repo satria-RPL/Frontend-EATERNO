@@ -1,19 +1,23 @@
 "use client";
 
 import Card from "../cards/Card";
+import { memo, useMemo } from "react";
 import IncomePieChart, { COLORS } from "../charts/IncomePieChart";
 
 type TotalIncomeProps = {
   data: { name: string; value: number }[];
 };
 
-export default function TotalIncome({ data }: TotalIncomeProps) {
+function TotalIncomeComponent({ data }: TotalIncomeProps) {
   const hasData = data.length > 0;
-  const total = data.reduce((acc, item) => acc + item.value, 0);
-  const formattedTotal = total.toLocaleString("id-ID");
+  const total = useMemo(
+    () => data.reduce((acc, item) => acc + item.value, 0),
+    [data]
+  );
+  const formattedTotal = useMemo(() => total.toLocaleString("id-ID"), [total]);
 
   return (
-    <Card>
+    <Card className="cv-auto">
       <div className="p-2">
         <h2 className="text-2xl font-medium">Total Income</h2>
 
@@ -45,3 +49,5 @@ export default function TotalIncome({ data }: TotalIncomeProps) {
     </Card>
   );
 }
+
+export default memo(TotalIncomeComponent);

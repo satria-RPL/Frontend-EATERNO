@@ -19,6 +19,7 @@ type KitchenOrdersLoaderOptions = KitchenOrdersService & KitchenOrdersMapOptions
 type KitchenOrderStatusRecord = {
   id?: number | string | null;
   transactionItemId?: number | string | null;
+  transaction_item_id?: number | string | null;
   status?: string | null;
   note?: string | null;
 };
@@ -790,7 +791,7 @@ export function applyKitchenOrderStatuses(
   const statusByItemId = new Map<string, KitchenOrderStatusRecord>();
 
   rawItems.forEach((item) => {
-    const id = toStringValue(item.transactionItemId);
+    const id = toStringValue(item.transactionItemId ?? item.transaction_item_id);
     if (!id) return;
     statusByItemId.set(id, item);
   });

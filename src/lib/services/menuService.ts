@@ -8,6 +8,7 @@ export function fetchMenuPrices() {
   return apiRequest("/api/menu-prices", { auth: true });
 }
 
-export function fetchCategories() {
-  return apiRequest("/api/categories", { auth: true });
+export function fetchCategories(type?: string) {
+  const query = type ? `?type=${encodeURIComponent(type)}` : "";
+  return apiRequest(`/api/categories${query}`, { auth: true });
 }

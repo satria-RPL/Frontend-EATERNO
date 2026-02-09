@@ -9,7 +9,7 @@ import {
 const { loadProductsList } = createProductsListLoader({
   fetchMenus,
   fetchMenuPrices,
-  fetchCategories,
+  fetchCategories: () => fetchCategories("menu"),
 });
 
 export default async function ProductList() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Eye, Trash2 } from "lucide-react";
 import { createOrderHistoryActions } from "@/domain/orders/orderHistory";
@@ -10,6 +10,7 @@ import {
   updateTransactionStatus,
   fetchTransactionById,
 } from "@/lib/services/orderService";
+import { usePolling } from "@/lib/hooks/usePolling";
 import {
   buildEscPosPayload,
   getSerialApi,
@@ -57,24 +58,29 @@ export default function OrderTable({
     []
   );
 
-  useEffect(() => {
-    let active = true;
-    const fetchData = () =>
-      loadOrders()
-        .then((data) => {
-          if (active) setOrders(data);
-        })
-        .catch(() => {
-          if (active) setOrders([]);
-        });
+  const ordersFingerprintRef = useRef<string>("");
+  const applyOrders = useCallback((nextOrders: Order[]) => {
+    const fingerprint = nextOrders
+      .map(
+        (order) =>
+          `${order.id}:${order.status}:${order.date}:${order.items}:${order.price}`
+      )
+      .join("|");
+    if (fingerprint === ordersFingerprintRef.current) return;
+    ordersFingerprintRef.current = fingerprint;
+    setOrders(nextOrders);
+  }, []);
 
-    fetchData();
-    const intervalId = window.setInterval(fetchData, 15000);
-    return () => {
-      active = false;
-      window.clearInterval(intervalId);
-    };
-  }, [loadOrders]);
+  const fetchData = useCallback(async () => {
+    try {
+      const data = await loadOrders();
+      applyOrders(data);
+    } catch {
+      applyOrders([]);
+    }
+  }, [applyOrders, loadOrders]);
+
+  usePolling(fetchData, { intervalMs: 15000, immediate: true });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -164,19 +170,9 @@ export default function OrderTable({
     if (!selectedOrder) return;
 
     setVoidError(null);
-    const resolvedId =
-      selectedOrder.transactionId ??
-      (() => {
-        const trimmed = selectedOrder.id.trim();
-        const normalized = trimmed.startsWith("#")
-          ? trimmed.slice(1)
-          : trimmed;
-        if (!/^\d+$/.test(normalized)) return null;
-        const parsed = Number(normalized);
-        return Number.isFinite(parsed) ? parsed : null;
-      })();
+    const resolvedId = selectedOrder.transactionId ?? selectedOrder.id;
 
-    if (!resolvedId || resolvedId <= 0) {
+    if (resolvedId == null || resolvedId === "") {
       setVoidError("ID transaksi tidak ditemukan.");
       return;
     }
@@ -249,7 +245,7 @@ export default function OrderTable({
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-2xl border border-[#e9e4df] bg-white p-4 shadow-sm">
-      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto rounded-2xl border border-[#e9e4df]">
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto hide-scrollbar rounded-2xl border border-[#e9e4df]">
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-[#e9e4df] bg-[#f8f6f4] text-left text-xs text-[#8c8c8c]">

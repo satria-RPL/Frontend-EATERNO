@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import TableCard from "@/components/cards/TableCard";
 import { TablesService } from "@/lib/services/tablesService";
 import { persistCheckoutState } from "@/lib/checkout/storage";
+import { usePolling } from "@/lib/hooks/usePolling";
 
 type TableUI = {
   id: number;
@@ -18,10 +19,11 @@ type TableUI = {
 export default function ChooseTable() {
   const [tables, setTables] = useState<TableUI[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+  const isActiveRef = useRef(true);
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const loadTables = useCallback(async (isActive?: () => boolean) => {
+  const loadTables = useCallback(async () => {
     try {
       const tablesData = await TablesService.getAll();
 
@@ -43,7 +45,7 @@ export default function ChooseTable() {
           capacity: t.capacity ?? 0,
         }));
 
-      if (!isActive || isActive()) {
+      if (isActiveRef.current) {
         setTables(mapped);
       }
     } catch (err) {
@@ -56,6 +58,7 @@ export default function ChooseTable() {
     const disabledById = new Map(
       tablesData.map((table) => [table.id, table.status !== "available"])
     );
+    if (!isActiveRef.current) return;
     setTables((prev) =>
       prev.map((t) => {
         const disabled = disabledById.get(t.id);
@@ -71,22 +74,14 @@ export default function ChooseTable() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-
-    const isActive = () => active;
-
-    loadTables(isActive);
-
-    const intervalId = window.setInterval(() => {
-      if (!active) return;
-      refreshTables();
-    }, 5000);
-
+    isActiveRef.current = true;
+    loadTables();
     return () => {
-      active = false;
-      window.clearInterval(intervalId);
+      isActiveRef.current = false;
     };
-  }, [loadTables, refreshTables]);
+  }, [loadTables]);
+
+  usePolling(refreshTables, { intervalMs: 5000, immediate: false });
 
   const handleContinue = () => {
     if (!selected) return;
@@ -97,8 +92,14 @@ export default function ChooseTable() {
     router.push(query ? `/main/products/list?${query}` : "/main/products/list");
   };
 
-  const smallTables = tables.filter((t) => t.capacity <= 3);
-  const largeTables = tables.filter((t) => t.capacity > 3);
+  const smallTables = useMemo(
+    () => tables.filter((t) => t.capacity <= 3),
+    [tables]
+  );
+  const largeTables = useMemo(
+    () => tables.filter((t) => t.capacity > 3),
+    [tables]
+  );
 
   return (
     <div className="max-w-5xl">

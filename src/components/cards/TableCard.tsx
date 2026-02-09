@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 interface TableCardProps {
   label: number | string;
   disabled?: boolean;
@@ -8,7 +10,7 @@ interface TableCardProps {
   size?: "small" | "large";
 }
 
-export default function TableCard({
+function TableCardComponent({
   label,
   disabled,
   active,
@@ -35,3 +37,5 @@ export default function TableCard({
     </button>
   );
 }
+
+export default memo(TableCardComponent);

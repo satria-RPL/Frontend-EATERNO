@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { memo } from "react";
 
 type Category = {
   id: string;
@@ -12,7 +13,7 @@ type ProductCategoriesProps = {
   onSelectCategory: (id: Category["id"]) => void;
 };
 
-export function ProductCategories({
+function ProductCategoriesComponent({
   categories,
   activeCategory,
   onSelectCategory,
@@ -55,3 +56,5 @@ export function ProductCategories({
     </section>
   );
 }
+
+export const ProductCategories = memo(ProductCategoriesComponent);

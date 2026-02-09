@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import useHorizontalScroll from "@/lib/hooks/useHorizontalScroll";
+import { usePolling } from "@/lib/hooks/usePolling";
 import { FILTERS, type OrderFilter, type OrderSummary } from "@/data/orders";
 import type {
   ProductCategory,
@@ -23,56 +24,50 @@ type ProductsListClientProps = {
   categories: ProductCategory[];
 };
 
-export default function ProductsListClient({
-  products,
-  categories,
-}: ProductsListClientProps) {
-  const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<OrderFilter>("all");
-  const [activeCategory, setActiveCategory] = useState<string>("all");
-  const [orders, setOrders] = useState<OrderSummary[]>([]);
-  const [isAddOnsOpen, setIsAddOnsOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(
-    null
-  );
+type OrdersSectionProps = {
+  onBack: () => void;
+};
 
-  const handleBackOrderType = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("eaterno-checkout");
-    }
-    router.push("/main/products/ordertype");
-  };
+function buildOrdersFingerprint(orders: OrderSummary[]) {
+  return orders
+    .map(
+      (order) =>
+        `${order.id}:${order.transactionStatus ?? ""}:${order.kitchenStatus ?? ""}:${order.timeAgo ?? ""}:${order.itemsCount}:${order.type}`
+    )
+    .join("|");
+}
+
+function OrdersSection({ onBack }: OrdersSectionProps) {
+  const [activeFilter, setActiveFilter] = useState<OrderFilter>("all");
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fingerprintRef = useRef<string>("");
+
+  useHorizontalScroll(scrollRef);
 
   const { loadKitchenOrders } = useMemo(
-    // () => createKitchenOrdersLoader({ fetchKitchenOrders }),
     () => createKitchenOrdersLoader({ fetchKitchenOrders, splitByItem: false }),
     []
   );
 
-  useEffect(() => {
-    let isActive = true;
+  const applyOrders = useCallback((nextOrders: OrderSummary[]) => {
+    const nextFingerprint = buildOrdersFingerprint(nextOrders);
+    if (nextFingerprint === fingerprintRef.current) return;
+    fingerprintRef.current = nextFingerprint;
+    setOrders(nextOrders);
+  }, []);
 
-    const loadOrders = async () => {
-      const result = await loadKitchenOrders();
-      if (!isActive) return;
+  const loadOrders = useCallback(async () => {
+    const result = await loadKitchenOrders();
+    if (result.error) {
+      console.error("Failed to load kitchen orders", result.error);
+      applyOrders([]);
+      return;
+    }
+    applyOrders(result.orders);
+  }, [loadKitchenOrders, applyOrders]);
 
-      if (result.error) {
-        console.error("Failed to load kitchen orders", result.error);
-        setOrders([]);
-        return;
-      }
-
-      setOrders(result.orders);
-    };
-
-    loadOrders();
-    const intervalId = window.setInterval(loadOrders, 15000);
-
-    return () => {
-      isActive = false;
-      window.clearInterval(intervalId);
-    };
-  }, [loadKitchenOrders]);
+  usePolling(loadOrders, { intervalMs: 15000, immediate: true });
 
   const visibleOrders = useMemo(() => {
     const allowedStatuses = new Set(["proses", "process", "ready_to_pickup"]);
@@ -108,42 +103,105 @@ export default function ProductsListClient({
       ? visibleOrders
       : visibleOrders.filter((order) => order.type === activeFilter);
 
-  const filteredProducts =
-    activeCategory === "all"
-      ? products
-      : products.filter((product) => product.category === activeCategory);
+  return (
+    <>
+      <ProductsHeader
+        activeFilter={activeFilter}
+        filters={FILTERS}
+        orders={visibleOrders}
+        onChangeFilter={(value) => setActiveFilter(value)}
+        onBack={onBack}
+      />
 
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  useHorizontalScroll(scrollRef);
+      <OrderCards orders={filteredOrders} scrollRef={scrollRef} />
+    </>
+  );
+}
 
-  const handleAddToCart = (product: ProductItem) => {
+export default function ProductsListClient({
+  products,
+  categories,
+}: ProductsListClientProps) {
+  const router = useRouter();
+  const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [isAddOnsOpen, setIsAddOnsOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(
+    null
+  );
+  const PAGE_SIZE = 24;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const handleBackOrderType = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("eaterno-checkout");
+    }
+    router.push("/main/products/ordertype");
+  }, [router]);
+
+  const filteredProducts = useMemo(
+    () =>
+      activeCategory === "all"
+        ? products
+        : products.filter((product) => product.category === activeCategory),
+    [activeCategory, products]
+  );
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeCategory]);
+
+  const pagedProducts = useMemo(
+    () => filteredProducts.slice(0, visibleCount),
+    [filteredProducts, visibleCount]
+  );
+  const canLoadMore = visibleCount < filteredProducts.length;
+
+  const handleLoadMore = useCallback(() => {
+    setVisibleCount((current) =>
+      Math.min(current + PAGE_SIZE, filteredProducts.length)
+    );
+  }, [filteredProducts.length]);
+
+  const handleSelectCategory = useCallback((id: string) => {
+    setActiveCategory(id);
+  }, []);
+
+  const handleAddToCart = useCallback((product: ProductItem) => {
     setSelectedProduct(product);
     setIsAddOnsOpen(true);
-  };
+  }, []);
 
   return (
     <>
       <div className="mb-10">
-        <ProductsHeader
-          activeFilter={activeFilter}
-          filters={FILTERS}
-          orders={visibleOrders}
-          onChangeFilter={(value) => setActiveFilter(value)}
-          onBack={handleBackOrderType}
-        />
-
-        <OrderCards orders={filteredOrders} scrollRef={scrollRef} />
+        <OrdersSection onBack={handleBackOrderType} />
 
         <ProductCategories
           categories={categories}
           activeCategory={activeCategory}
-          onSelectCategory={(id) => setActiveCategory(id)}
+          onSelectCategory={handleSelectCategory}
         />
 
         <ProductsGrid
-          products={filteredProducts}
+          products={pagedProducts}
           onAddToCart={handleAddToCart}
         />
+
+        <div className="mt-6 flex items-center justify-between text-sm text-gray-500">
+          <span>
+            Menampilkan {Math.min(visibleCount, filteredProducts.length)} dari{" "}
+            {filteredProducts.length} menu
+          </span>
+          {canLoadMore && (
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              className="rounded-full border border-orange-200 px-4 py-2 text-orange-600 transition hover:bg-orange-50"
+            >
+              Load more
+            </button>
+          )}
+        </div>
       </div>
 
       <AddOnsModal

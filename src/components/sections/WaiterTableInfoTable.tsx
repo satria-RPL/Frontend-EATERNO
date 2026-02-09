@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpDown, Filter } from "lucide-react";
 import Pagination from "../ui/Pagination";
 import { TablesService } from "@/lib/services/tablesService";
+import { usePolling } from "@/lib/hooks/usePolling";
 
 type TableInfo = {
   id: number;
@@ -23,47 +24,41 @@ export default function WaiterTableInfoTable() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const isActiveRef = useRef(true);
 
-  const loadTables = async (isActive?: () => boolean) => {
+  const loadTables = useCallback(async () => {
     setLoading(true);
     try {
       const data = await TablesService.getAll();
-      if (!isActive || isActive()) {
+      if (isActiveRef.current) {
         setTables(data);
       }
     } catch {
-      if (!isActive || isActive()) {
+      if (isActiveRef.current) {
         setTables([]);
       }
     } finally {
-      if (!isActive || isActive()) {
+      if (isActiveRef.current) {
         setLoading(false);
       }
     }
-  };
+  }, []);
 
-  const refreshTables = async (isActive?: () => boolean) => {
+  const refreshTables = useCallback(async () => {
     try {
       const data = await TablesService.getAll();
-      if (!isActive || isActive()) {
+      if (isActiveRef.current) {
         setTables(data);
       }
     } catch {
       // Silent refresh failures keep existing UI state.
     }
-  };
+  }, []);
 
   useEffect(() => {
     let active = true;
-
-    const isActive = () => active;
-
-    loadTables(isActive);
-
-    const intervalId = window.setInterval(() => {
-      if (!active) return;
-      refreshTables(isActive);
-    }, 5000);
+    isActiveRef.current = true;
+    loadTables();
 
     const handler = (event: MessageEvent) => {
       if (!event.data || !active) return;
@@ -86,14 +81,16 @@ export default function WaiterTableInfoTable() {
 
     return () => {
       active = false;
-      window.clearInterval(intervalId);
+      isActiveRef.current = false;
       if (channelRef.current) {
         channelRef.current.removeEventListener("message", handler);
         channelRef.current.close();
         channelRef.current = null;
       }
     };
-  }, []);
+  }, [loadTables]);
+
+  usePolling(refreshTables, { intervalMs: 5000, immediate: false });
 
   const paged = useMemo(() => {
     const start = (page - 1) * perPage;

@@ -1,18 +1,19 @@
 "use client";
 
 import Image from "next/image";
+import { memo } from "react";
 import Card from "../cards/Card";
 import { type BestSellerItem } from "@/domain/bestSeller";
 
-const FALLBACK_IMAGE = "/img/coffee.webp";
+const FALLBACK_IMAGE = "/icon/offee.webp";
 
 type BestSellerProps = {
   items: BestSellerItem[];
 };
 
-export default function BestSeller({ items }: BestSellerProps) {
+function BestSellerComponent({ items }: BestSellerProps) {
   return (
-    <Card>
+    <Card className="cv-auto">
       <div className="p-2">
         <h2 className="text-2xl font-medium mb-4">Best Seller</h2>
 
@@ -50,3 +51,5 @@ export default function BestSeller({ items }: BestSellerProps) {
     </Card>
   );
 }
+
+export default memo(BestSellerComponent);

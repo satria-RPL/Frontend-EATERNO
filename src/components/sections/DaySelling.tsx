@@ -1,6 +1,7 @@
 "use client";
 
 import Card from "../cards/Card";
+import { memo } from "react";
 import DaySellingAreaChart, {
   type SellingData,
   type SellingSeries,
@@ -11,11 +12,11 @@ type DaySellingProps = {
   series: SellingSeries[];
 };
 
-export default function DaySelling({ data, series }: DaySellingProps) {
+function DaySellingComponent({ data, series }: DaySellingProps) {
   const hasData = series.length > 0;
 
   return (
-    <Card>
+    <Card className="cv-auto">
       <div className="p-2">
         <h2 className="text-2xl font-medium">Day Selling</h2>
         {!hasData && (
@@ -26,3 +27,5 @@ export default function DaySelling({ data, series }: DaySellingProps) {
     </Card>
   );
 }
+
+export default memo(DaySellingComponent);

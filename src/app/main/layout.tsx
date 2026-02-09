@@ -20,12 +20,14 @@ export default async function MainLayout({
 
   if (isCashier) {
     const shiftsResult = await apiRequest("/api/cashier-shifts", { auth: true });
-    const hasOpenShift =
-      shiftsResult.ok &&
-      hasActiveCashierShift(shiftsResult.data, sessionUser.id);
-
-    if (!hasOpenShift) {
-      redirect("/public/shift/openshift");
+    if (shiftsResult.ok) {
+      const hasOpenShift = hasActiveCashierShift(
+        shiftsResult.data,
+        sessionUser.id
+      );
+      if (!hasOpenShift) {
+        redirect("/public/shift/openshift");
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import { clearCheckoutState, readCheckoutState } from "@/lib/checkout/storage";
 import { buildEscPosPayload, openSerialPort, writeSerial, type SerialPortLike } from "@/lib/printing/escpos";
 import { createKitchenOrderStatus } from "@/lib/services/kitchenOrderService";
 import { fetchOrders } from "@/lib/services/orderService";
+import { TablesService } from "@/lib/services/tablesService";
 import { createTransaction, fetchTransactionItems, updateTransaction } from "@/lib/services/transactionService";
 
 export type { SerialPortLike };
@@ -65,10 +66,12 @@ export async function processPayment({
     orderTypeParam ?? savedState.orderType ?? null,
     resolvedTableId
   );
+  const finalTableId =
+    resolvedOrderType === "takeaway" ? null : resolvedTableId;
 
   const result = await createTransaction({
     placeId: resolvedPlaceId,
-    tableId: resolvedTableId,
+    tableId: finalTableId,
     orderType: resolvedOrderType,
     customerName: resolvedCustomerName,
     note: savedState.kitchenNote?.trim() || null,
@@ -108,6 +111,12 @@ export async function processPayment({
         console.warn("Gagal membuat kitchen order", error);
       }
     );
+  }
+
+  if (resolvedOrderType === "dine_in" && finalTableId) {
+    markTableOccupied(finalTableId).catch((error) => {
+      console.warn("Gagal update status meja", error);
+    });
   }
 
   clearCheckoutState();
@@ -150,6 +159,18 @@ export async function processPayment({
       didCreateTransaction: true,
     };
   }
+}
+
+async function markTableOccupied(tableId: number) {
+  const tables = await TablesService.getAll();
+  const table = tables.find((item) => Number(item.id) === tableId);
+  if (!table) return;
+  await TablesService.update(tableId, {
+    placeId: table.placeId,
+    name: table.name,
+    capacity: table.capacity,
+    status: "not_available",
+  });
 }
 
 function persistTransactionCode(payload: unknown) {

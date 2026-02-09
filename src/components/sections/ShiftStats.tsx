@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Card from "../cards/Card";
 import StatItem from "../cards/StatItem";
 import {
@@ -8,6 +8,7 @@ import {
   type ShiftStatsMetrics,
   type ShiftStatsSnapshot,
 } from "@/domain/shift/shiftStats";
+import { usePolling } from "@/lib/hooks/usePolling";
 
 type ShiftStatsProps = {
   userName?: string;
@@ -30,19 +31,19 @@ export default function ShiftStats({ userName, snapshot, metrics }: ShiftStatsPr
     setStats(metrics);
   }, [metrics, snapshot]);
 
-  useEffect(() => {
+  const updateDuration = useCallback(() => {
     if (openedAtMs == null) return;
-
     setWorkDuration(formatDuration(Date.now() - openedAtMs));
-    const interval = setInterval(() => {
-      setWorkDuration(formatDuration(Date.now() - openedAtMs));
-    }, 1_000);
-
-    return () => clearInterval(interval);
   }, [openedAtMs]);
 
+  usePolling(updateDuration, {
+    intervalMs: 1000,
+    immediate: true,
+    enabled: openedAtMs != null,
+  });
+
   return (
-    <Card>
+    <Card className="cv-auto">
       <h2 className="text-2xl font-medium mb-2">
         👋 Hai {userName}, Statistik Shift Anda
       </h2>

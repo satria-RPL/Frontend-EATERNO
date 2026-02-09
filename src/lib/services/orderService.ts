@@ -26,6 +26,8 @@ type TransactionItem = {
 
 type Transaction = {
   id?: number;
+  transactionId?: number | string | null;
+  transaction_id?: number | string | null;
   code?: string | number | null;
   orderNumber?: string | number | null;
   order_no?: string | number | null;
@@ -62,7 +64,7 @@ function mapTransactionToOrder(tx: Transaction, items: TransactionItem[]) {
 
   return {
     id: resolveTransactionCode(tx),
-    transactionId: tx.id ?? null,
+    transactionId: resolveTransactionIdValue(tx),
     note: tx.note ?? null,
     name: normalizeName(tx),
     payment: normalizePayment(tx.paymentMethodId ?? null),
@@ -78,6 +80,17 @@ function mapTransactionToOrder(tx: Transaction, items: TransactionItem[]) {
     createdAt: tx.createdAt ?? null,
     detailItems,
   };
+}
+
+function resolveTransactionIdValue(tx: Transaction): number | null {
+  const candidate = tx.id ?? tx.transactionId ?? tx.transaction_id ?? null;
+  if (typeof candidate === "number") {
+    return Number.isFinite(candidate) ? candidate : null;
+  }
+  if (typeof candidate === "string") {
+    return parseNumericIdFromString(candidate);
+  }
+  return null;
 }
 
 function normalizePayment(value: Transaction["paymentMethodId"]): string {
@@ -252,16 +265,26 @@ export async function fetchOrders(): Promise<Order[]> {
   }
 }
 
+function parseNumericIdFromString(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.startsWith("#") ? trimmed.slice(1) : trimmed;
+  if (!normalized) return null;
+  if (/^\d+$/.test(normalized)) {
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  const match = normalized.match(/(\d+)(?!.*\d)/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function parseTransactionId(value: string | number): number | null {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
   }
-  const trimmed = String(value).trim();
-  if (!trimmed) return null;
-  const normalized = trimmed.startsWith("#") ? trimmed.slice(1) : trimmed;
-  if (!/^\d+$/.test(normalized)) return null;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseNumericIdFromString(String(value));
 }
 
 export async function voidOrder(
@@ -286,7 +309,8 @@ export async function voidOrder(
       : {}),
   };
 
-  const res = await fetch(`/api/transactions/void/${resolvedId}`, {
+  const encodedId = encodeURIComponent(String(resolvedId));
+  const res = await fetch(`/api/transactions/void/${encodedId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(bodyPayload),

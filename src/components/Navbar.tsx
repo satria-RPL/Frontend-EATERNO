@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react";
 import HistoryOrderSearchBar from "@/components/HistoryOrderSearchBar";
 import { fetchTransactions } from "@/lib/services/transactionService";
 import { fetchCashierShifts } from "@/lib/services/shiftService";
+import { usePolling } from "@/lib/hooks/usePolling";
 
 type NavbarProps = {
   userName?: string;
@@ -38,18 +39,16 @@ export default function Navbar({
   const [notifShiftKey, setNotifShiftKey] = useState<string | null>(null);
   const prevNotifOpen = useRef(false);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLabel(
-        new Date().toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      );
-    }, 30_000);
-
-    return () => clearInterval(interval);
+  const updateTimeLabel = useCallback(() => {
+    setTimeLabel(
+      new Date().toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    );
   }, []);
+
+  usePolling(updateTimeLabel, { intervalMs: 30000, immediate: true });
 
   const loadNotifications = useCallback(async (showLoading: boolean) => {
     if (showLoading) {
@@ -112,14 +111,7 @@ export default function Navbar({
     }
   }, [notifOpen, loadNotifications]);
 
-  useEffect(() => {
-    loadNotifications(false);
-    const interval = setInterval(() => {
-      loadNotifications(false);
-    }, 30_000);
-
-    return () => clearInterval(interval);
-  }, [loadNotifications]);
+  usePolling(() => loadNotifications(false), { intervalMs: 30000, immediate: true });
 
   useEffect(() => {
     if (prevNotifOpen.current && !notifOpen) {

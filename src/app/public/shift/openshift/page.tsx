@@ -18,6 +18,7 @@ import {
   fetchShifts,
   fetchStations,
 } from "@/lib/services/shiftService";
+import { usePolling } from "@/lib/hooks/usePolling";
 
 function formatCashInput(value: string) {
   if (!value) return "";
@@ -62,11 +63,17 @@ export default function OpenShiftPage() {
   const amountNumber = Number(amount);
   const isAmountValid = !Number.isNaN(amountNumber) && amountNumber > 0;
   const occupiedStationSet = new Set(occupiedStationIds);
+  const isStationOptionOccupied = (option: StationOption) => {
+    if (occupiedStationSet.has(option.value)) return true;
+    if (option.id && occupiedStationSet.has(option.id)) return true;
+    if (option.label && occupiedStationSet.has(option.label)) return true;
+    return false;
+  };
   const isStationOccupied =
     station !== "" &&
     (occupiedStationSet.has(station) ||
       stationOptions.some(
-        (option) => option.value === station && option.id && occupiedStationSet.has(option.id)
+        (option) => option.value === station && isStationOptionOccupied(option)
       ));
 
   const isFormValid =
@@ -224,7 +231,9 @@ export default function OpenShiftPage() {
 
   const loadOccupiedStations = useCallback(async () => {
     if (stationOptions.length === 0) {
-      setOccupiedStationIds([]);
+      if (isMountedRef.current) {
+        setOccupiedStationIds([]);
+      }
       return;
     }
 
@@ -234,8 +243,10 @@ export default function OpenShiftPage() {
       );
 
       if (!statusResult.ok) {
-        setOccupiedStationIds([]);
-        setStationNotice("Gagal memuat status station aktif");
+        if (isMountedRef.current) {
+          setOccupiedStationIds([]);
+          setStationNotice("Gagal memuat status station aktif");
+        }
         return;
       }
 
@@ -247,63 +258,37 @@ export default function OpenShiftPage() {
           (option.id && occupiedSet.has(option.id));
         return count + (isOccupied ? 1 : 0);
       }, 0);
-      setOccupiedStationIds(occupiedIds);
-      setStation((current) =>
-        current &&
-        (occupiedSet.has(current) ||
-          stationOptions.some(
-            (option) =>
-              option.value === current &&
-              option.id &&
-              occupiedSet.has(option.id)
-          ))
-          ? ""
-          : current
-      );
+      if (isMountedRef.current) {
+        setOccupiedStationIds(occupiedIds);
+        setStation((current) =>
+          current &&
+          (occupiedSet.has(current) ||
+            stationOptions.some(
+              (option) =>
+                option.value === current &&
+                option.id &&
+                occupiedSet.has(option.id)
+            ))
+            ? ""
+            : current
+        );
 
-      if (
-        stationOptions.length > 0 &&
-        occupiedInListCount >= stationOptions.length
-      ) {
-        setStationNotice("Semua station sedang dipakai");
+        if (
+          stationOptions.length > 0 &&
+          occupiedInListCount >= stationOptions.length
+        ) {
+          setStationNotice("Semua station sedang dipakai");
+        }
       }
     } catch {
-      setOccupiedStationIds([]);
-      setStationNotice("Gagal memuat status station aktif");
+      if (isMountedRef.current) {
+        setOccupiedStationIds([]);
+        setStationNotice("Gagal memuat status station aktif");
+      }
     }
   }, [stationOptions]);
 
-  useEffect(() => {
-    let isActive = true;
-
-    const run = async () => {
-      if (!isActive) return;
-      await loadOccupiedStations();
-    };
-
-    run();
-
-    const intervalId = window.setInterval(() => {
-      if (!document.hidden) {
-        run();
-      }
-    }, 2000);
-
-    const handleFocus = () => run();
-    const handleVisibility = () => {
-      if (!document.hidden) run();
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      isActive = false;
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [loadOccupiedStations]);
+  usePolling(loadOccupiedStations, { intervalMs: 2000, immediate: true });
 
   useEffect(() => {
     if (isStationOpen) {
@@ -438,14 +423,14 @@ export default function OpenShiftPage() {
                   <ul className="divide-y divide-gray-100">
                     {stationOptions.map((option) => {
                       const isSelected = option.value === station;
-                      const isOccupied =
-                        occupiedStationSet.has(option.value) ||
-                        (option.id ? occupiedStationSet.has(option.id) : false);
+                      const isOccupied = isStationOptionOccupied(option);
                       return (
                         <li key={option.value}>
                           <button
                             type="button"
                             disabled={isOccupied}
+                            aria-disabled={isOccupied}
+                            title={isOccupied ? "Station sedang dipakai" : undefined}
                             onClick={() => {
                               if (isOccupied) return;
                               setStation(option.value);
@@ -457,7 +442,9 @@ export default function OpenShiftPage() {
                                 : "text-gray-700 hover:bg-gray-50"
                             }`}
                           >
-                            <span>{option.label}</span>
+                            <span className="flex items-center gap-2">
+                              <span>{option.label}</span>
+                            </span>
                             <span
                               className={`flex h-5 w-5 items-center justify-center rounded-full border ${
                                 isSelected

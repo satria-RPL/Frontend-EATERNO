@@ -9,6 +9,7 @@ import type { Order } from "@/types/order";
 import OrderDetailKitchenModal from "@/components/modals/OrderDetailKitchenModal";
 
 import type { OrderSummary } from "@/data/orders";
+import { usePolling } from "@/lib/hooks/usePolling";
 
 type KitchenFilter = "all" | "dinein" | "takeaway" | "done" | "void";
 
@@ -88,15 +89,12 @@ export default function KitchenListClient() {
 
   useEffect(() => {
     isActiveRef.current = true;
-    loadOrders();
-    const intervalId = window.setInterval(() => {
-      loadOrders();
-    }, 15000);
     return () => {
       isActiveRef.current = false;
-      window.clearInterval(intervalId);
     };
-  }, [loadOrders]);
+  }, []);
+
+  usePolling(loadOrders, { intervalMs: 15000, immediate: true });
 
   const filteredOrders = useMemo(() => {
     if (activeFilter === "all") {
@@ -352,7 +350,7 @@ export default function KitchenListClient() {
         return (
           <div
             key={getStatusKey(order)}
-            className={`rounded-xl bg-white shadow-sm overflow-hidden select-none ${
+            className={`cv-auto rounded-xl bg-white shadow-sm overflow-hidden select-none ${
               isWrap ? "w-full" : "shrink-0"
             }`}
             style={{
